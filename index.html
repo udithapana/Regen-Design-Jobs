@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16213a">
+<title>Regen Design Requests</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f4f7; --card:#fff; --ink:#18202f; --muted:#667085; --line:#e3e6ec;
+  --navy:#16213a; --accent:#f59e0b; --accent-ink:#1b1300;
+  --red:#d92d20; --red-bg:#fee4e2; --orange:#e8590c; --orange-bg:#ffead5;
+  --amber:#b54708; --amber-bg:#fef0c7; --green:#067647; --green-bg:#dcfae6;
+  --blue:#175cd3; --blue-bg:#d1e9ff; --grey-bg:#eef0f3;
+  --r:14px; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+header{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.bar{display:flex;align-items:center;gap:10px;max-width:960px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.logo{width:32px;height:32px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}
+.brand b{display:block;font-size:16px;letter-spacing:.2px}
+.brand small{display:block;opacity:.7;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:10px;height:36px;min-width:36px;padding:0 10px;cursor:pointer}
+.icon-btn:active{background:rgba(255,255,255,.2)}
+main{max-width:960px;margin:0 auto;padding:14px 16px 110px}
+.alerts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.alert{border:0;border-radius:12px;padding:10px 8px;text-align:left;cursor:pointer;background:var(--card);box-shadow:var(--shadow)}
+.alert b{display:block;font-size:22px;line-height:1.1}
+.alert span{font-size:12px;color:var(--muted)}
+.alert.red b{color:var(--red)} .alert.orange b{color:var(--orange)} .alert.amber b{color:var(--amber)} .alert.grey b{color:var(--ink)}
+.alert.on{outline:2px solid var(--navy)}
+.alert.zero{opacity:.55}
+.toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;overflow-x:auto;flex:1;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;white-space:nowrap;cursor:pointer}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.search{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
+.list{display:grid;gap:10px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 14px 12px 16px;cursor:pointer;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--line)}
+.card.u-overdue::before{background:var(--red)} .card.u-urgent::before{background:var(--orange)} .card.u-soon::before{background:var(--accent)} .card.u-done::before{background:var(--green)}
+.row1{display:flex;align-items:flex-start;gap:8px}
+.row1 .t{flex:1;min-width:0}
+.id{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.client{font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.pill{font-size:12px;border-radius:999px;padding:2px 9px;background:var(--grey-bg);white-space:nowrap}
+.p-Urgent{background:var(--red-bg);color:var(--red);font-weight:600}
+.p-High{background:var(--orange-bg);color:var(--orange);font-weight:600}
+.p-Normal{background:var(--blue-bg);color:var(--blue)}
+.p-Low{background:var(--grey-bg);color:var(--muted)}
+.s-Completed{background:var(--green-bg);color:var(--green)} .s-Info{background:var(--amber-bg);color:var(--amber)}
+.s-Review{background:#ebe9fe;color:#5925dc} .s-Cancelled,.s-Hold{background:var(--grey-bg);color:var(--muted)}
+.due{font-size:13px;font-weight:600;white-space:nowrap;text-align:right}
+.due small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.due.overdue{color:var(--red)} .due.urgent{color:var(--orange)} .due.soon{color:var(--amber)}
+.who{font-size:13px;color:var(--muted)}
+.who.none{color:var(--red);font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink);border:0;border-radius:16px;padding:14px 18px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;z-index:4}
+footer{max-width:960px;margin:0 auto;padding:0 16px 90px;font-size:11px;color:var(--muted);text-align:center}
+/* sheet / modal */
+.scrim{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.scrim{align-items:center}.sheet{border-radius:18px}}
+.sheet h2{margin:0 0 2px;font-size:19px}
+.sheet .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.close{float:right;border:0;background:var(--grey-bg);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:18px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input[type=text],input[type=password],input[type=number],input[type=datetime-local],select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+textarea{min-height:70px;resize:vertical}
+input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color:var(--ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{margin:0;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--ink);font-size:14px;cursor:pointer}
+.checks input{margin:0}
+.checks label:has(input:checked){background:var(--navy);color:#fff;border-color:var(--navy)}
+.checks label:has(input:disabled){cursor:default}
+.prio{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.prio label{margin:0;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 4px;color:var(--ink);cursor:pointer;font-size:14px}
+.prio input{display:none}
+.prio label:has(input:checked){border-color:currentColor;font-weight:700}
+.prio .Urgent:has(input:checked){background:var(--red-bg);color:var(--red)}
+.prio .High:has(input:checked){background:var(--orange-bg);color:var(--orange)}
+.prio .Normal:has(input:checked){background:var(--blue-bg);color:var(--blue)}
+.prio .Low:has(input:checked){background:var(--grey-bg)}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:600;cursor:pointer;background:var(--navy);color:#fff}
+.btn.alt{background:var(--grey-bg);color:var(--ink)}
+.btn.accent{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.actions .btn{flex:1}
+.section{border-top:1px solid var(--line);margin-top:16px;padding-top:4px}
+.section h3{font-size:14px;margin:12px 0 0;color:var(--navy)}
+.lock{font-size:12px;color:var(--muted);margin-top:4px}
+.banner{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px;font-weight:600}
+.banner.overdue{background:var(--red-bg);color:var(--red)} .banner.urgent{background:var(--orange-bg);color:var(--orange)} .banner.soon{background:var(--amber-bg);color:var(--amber)}
+.log{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+.log li{padding:7px 0;border-bottom:1px dashed var(--line)}
+.log b{font-weight:600}
+.log time{color:var(--muted);font-size:12px;display:block}
+.comment{display:flex;gap:8px;margin-top:10px}
+.comment input{flex:1}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;z-index:40;font-size:14px;max-width:90vw;text-align:center}
+.toast.err{background:var(--red)}
+/* login */
+.login{max-width:400px;margin:8vh auto;padding:0 16px}
+.login .box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:22px}
+.login h1{font-size:22px;margin:12px 0 4px}
+.login p{color:var(--muted);margin:0 0 6px;font-size:14px}
+.link{background:none;border:0;color:var(--blue);cursor:pointer;padding:0;font-size:14px;text-decoration:underline}
+.demo-tag{background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.brand b{white-space:nowrap}
+@media(max-width:520px){.alerts{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}
+  .toolbar{flex-direction:column-reverse}.search{flex:none;width:100%}.chips{flex:none;width:100%}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="loginView" class="login hidden">
+  <div class="box">
+    <div class="logo" style="width:44px;height:44px;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1b1300" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></div>
+    <h1>Design Requests</h1>
+    <p>Regen Renewables — Sales ↔ Design job tracker</p>
+    <div id="setupBox" class="hidden">
+      <label for="apiInput">Server link (Apps Script web app /exec URL)</label>
+      <input id="apiInput" type="text" placeholder="https://script.google.com/macros/s/…/exec">
+      <div class="actions"><button class="btn" id="saveApi">Connect</button></div>
+    </div>
+    <div id="signinBox">
+      <label for="nameSel">Your name</label>
+      <select id="nameSel"><option value="">Loading team…</option></select>
+      <label for="keyInput">Team key</label>
+      <input id="keyInput" type="password" autocomplete="current-password" placeholder="Key from the Design Lead">
+      <div class="actions"><button class="btn" id="signinBtn">Sign in</button></div>
+    </div>
+    <p style="margin-top:14px;display:flex;gap:14px;flex-wrap:wrap">
+      <button class="link" id="demoBtn">Try demo (sample data)</button>
+      <button class="link" id="changeApi">Change server</button>
+    </p>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="appView" class="hidden">
+  <header>
+    <div class="bar">
+      <div class="brand">
+        <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1b1300" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></div>
+        <div style="min-width:0"><b>Design Requests<span id="demoTag" class="demo-tag hidden">DEMO</span></b><small id="whoami"></small></div>
+      </div>
+      <button class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">↻</button>
+      <button class="icon-btn" id="logoutBtn" title="Sign out" aria-label="Sign out">⏻</button>
+    </div>
+  </header>
+  <main>
+    <div class="alerts" id="alerts"></div>
+    <div class="toolbar">
+      <div class="chips" id="chips"></div>
+      <input class="search" id="search" type="text" placeholder="Search client, ID, location…">
+    </div>
+    <div class="list" id="list"></div>
+  </main>
+  <footer>© <span id="yr"></span> Regen Renewables (Pvt) Ltd. Confidential — for internal use only. Unauthorised copying or distribution is prohibited.</footer>
+  <button class="fab hidden" id="newBtn">＋ New request</button>
+</div>
+
+<div id="modal" class="scrim hidden"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* =========================================================
+   CONFIG — paste your Apps Script web app URL here once,
+   or leave blank and enter it on the sign-in screen.
+   ========================================================= */
+const API_URL_DEFAULT = '';
+
+const DELIVERABLES = ['Roof layout', 'SLD', 'Structure', 'BOQ', 'Proposal', 'Yield report'];
+const PROJECT_TYPES = ['Domestic on-grid', 'Domestic hybrid', 'Commercial', 'Industrial', 'Ground mount', 'Other'];
+const PRIORITIES = ['Urgent', 'High', 'Normal', 'Low'];
+const STATUSES = ['New', 'Assigned', 'In Progress', 'Info Needed', 'Review', 'Completed', 'On Hold', 'Cancelled'];
+const CLOSED = ['Completed', 'Cancelled'];
+const SOON_H = 48, URGENT_H = 24;
+const LS = 'regen-drt-v1';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(){ try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch(e){ return {}; } },
+  set(p){ try { localStorage.setItem(LS, JSON.stringify(Object.assign(store.get(), p))); } catch(e){} }
+};
+
+const S = { user:null, key:'', demo:false, api:'', requests:[], team:[], filter:'active', quick:'', q:'', open:null, busy:false };
+
+/* ---------------- API ---------------- */
+async function api(action, data = {}){
+  if (S.demo) return Demo.call(action, data, S.user);
+  if (!S.api) throw new Error('Server link not set');
+  const res = await fetch(S.api, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(Object.assign({ action, auth:{ name:S.user?.name || data._name, key:S.key || data._key } }, data)) });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || 'Server error');
+  return j.data;
+}
+
+/* ---------------- urgency ---------------- */
+function urgency(r, now = Date.now()){
+  if (r.Status === 'Completed') return 'done';
+  if (CLOSED.includes(r.Status) || r.Status === 'On Hold') return 'idle';
+  const h = (new Date(r.Deadline) - now) / 36e5;
+  if (h < 0) return 'overdue';
+  if (h <= URGENT_H) return 'urgent';
+  if (h <= SOON_H) return 'soon';
+  return 'ok';
+}
+function relDue(r){
+  const ms = new Date(r.Deadline) - Date.now();
+  const a = Math.abs(ms), d = Math.floor(a / 864e5), h = Math.floor(a % 864e5 / 36e5), m = Math.floor(a % 36e5 / 6e4);
+  const span = d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+  return ms < 0 ? `Overdue ${span}` : `Due in ${span}`;
+}
+const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit', hour12:true }) : '';
+const toLocalInput = iso => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,16); };
+const prioRank = { Urgent:0, High:1, Normal:2, Low:3 };
+const urgRank = { overdue:0, urgent:1, soon:2, ok:3, idle:4, done:5 };
+
+/* ---------------- boot / login ---------------- */
+async function boot(){
+  $('#yr').textContent = new Date().getFullYear();
+  const st = store.get();
+  S.api = st.api || API_URL_DEFAULT;
+  if (st.demo) { startDemo(st.user); return; }
+  if (st.user && st.key && S.api) {
+    S.user = st.user; S.key = st.key;
+    showApp(); await refresh(true);
+    return;
+  }
+  showLogin();
+}
+
+function showLogin(){
+  $('#appView').classList.add('hidden'); $('#loginView').classList.remove('hidden');
+  const noApi = !S.api;
+  $('#setupBox').classList.toggle('hidden', !noApi);
+  $('#signinBox').classList.toggle('hidden', noApi);
+  if (!noApi) loadTeam();
+}
+
+async function loadTeam(){
+  const sel = $('#nameSel');
+  sel.innerHTML = '<option value="">Loading team…</option>';
+  try {
+    const res = await fetch(S.api, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'team' }) });
+    const j = await res.json(); if (!j.ok) throw new Error(j.error);
+    fillNames(j.data);
+  } catch(e){ sel.innerHTML = '<option value="">Could not reach server</option>'; toast('Could not reach the server — check the link', true); }
+}
+function fillNames(team){
+  const grp = t => team.filter(m => m.team.toLowerCase() === t);
+  const opt = m => `<option value="${esc(m.name)}">${esc(m.name)}${m.lead ? ' (Lead)' : ''}</option>`;
+  $('#nameSel').innerHTML = '<option value="">Select your name</option>' +
+    `<optgroup label="Sales">${grp('sales').map(opt).join('')}</optgroup><optgroup label="Design">${grp('design').map(opt).join('')}</optgroup>`;
+  const last = store.get().lastName; if (last) $('#nameSel').value = last;
+}
+
+$('#saveApi').onclick = () => {
+  const v = $('#apiInput').value.trim();
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(v)) return toast('Paste the web app link that ends with /exec', true);
+  S.api = v; store.set({ api:v }); showLogin();
+};
+$('#changeApi').onclick = () => { $('#apiInput').value = S.api; $('#setupBox').classList.remove('hidden'); $('#signinBox').classList.add('hidden'); };
+$('#signinBtn').onclick = async () => {
+  const name = $('#nameSel').value, key = $('#keyInput').value.trim();
+  if (!name || !key) return toast('Select your name and enter the team key', true);
+  const b = $('#signinBtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+  try {
+    const u = await api('login', { _name:name, _key:key });
+    S.user = u; S.key = key; store.set({ user:u, key, lastName:name, demo:false });
+    showApp(); await refresh(true);
+  } catch(e){ toast(e.message, true); }
+  finally { b.disabled = false; b.textContent = 'Sign in'; }
+};
+$('#keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('#signinBtn').click(); });
+$('#demoBtn').onclick = () => pickDemoUser();
+$('#logoutBtn').onclick = () => { store.set({ user:null, key:'', demo:false }); S.user = null; S.key = ''; S.demo = false; S.requests = []; showLogin(); };
+$('#refreshBtn').onclick = () => refresh(true);
+
+function showApp(){
+  $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
+  const roleName = { sales:'Sales', lead:'Design Lead', designer:'Designer' }[S.user.role];
+  $('#whoami').textContent = `${S.user.name} · ${roleName}`;
+  $('#demoTag').classList.toggle('hidden', !S.demo);
+  $('#newBtn').classList.toggle('hidden', !(S.user.role === 'sales' || S.user.role === 'lead'));
+  S.filter = S.user.role === 'designer' ? 'mine' : 'active';
+  renderChips();
+}
+
+/* ---------------- data ---------------- */
+async function refresh(manual){
+  if (S.busy) return; S.busy = true;
+  if (manual) $('#refreshBtn').innerHTML = '<span class="spin"></span>';
+  try {
+    const d = await api('list');
+    S.requests = d.requests; S.team = d.team;
+    render();
+  } catch(e){
+    if (/team key|not found in the team/i.test(e.message)) { toast(e.message + ' — please sign in again', true); $('#logoutBtn').click(); }
+    else if (manual) toast(e.message, true);
+  } finally { S.busy = false; $('#refreshBtn').textContent = '↻'; }
+}
+setInterval(() => { if (S.user && document.visibilityState === 'visible') refresh(false); }, 60000);
+document.addEventListener('visibilitychange', () => { if (S.user && document.visibilityState === 'visible') refresh(false); });
+setInterval(() => { if (S.user) render(); }, 60000); // keep "due in" times fresh
+
+/* ---------------- list view ---------------- */
+const FILTERS = {
+  active:   { label:'All open',    fn: r => !CLOSED.includes(r.Status) },
+  mine:     { label:'My jobs',     fn: r => !CLOSED.includes(r.Status) && (S.user.role === 'sales' ? r.CreatedBy === S.user.name : r.AssignedTo === S.user.name) },
+  unassigned:{label:'Unassigned',  fn: r => !CLOSED.includes(r.Status) && !r.AssignedTo },
+  info:     { label:'Info needed', fn: r => r.Status === 'Info Needed' },
+  review:   { label:'Review',      fn: r => r.Status === 'Review' },
+  done:     { label:'Completed',   fn: r => r.Status === 'Completed' },
+  all:      { label:'All',         fn: () => true }
+};
+function renderChips(){
+  const keys = S.user.role === 'lead' ? ['active','mine','unassigned','review','info','done','all']
+            : S.user.role === 'sales' ? ['active','mine','info','done','all'] : ['mine','active','info','done','all'];
+  $('#chips').innerHTML = keys.map(k => `<button class="chip ${S.filter === k ? 'on' : ''}" data-f="${k}">${FILTERS[k].label}</button>`).join('');
+  $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.filter = b.dataset.f; S.quick = ''; renderChips(); render(); });
+}
+$('#search').addEventListener('input', e => { S.q = e.target.value.trim().toLowerCase(); render(); });
+
+function render(){
+  if (!S.user) return;
+  const now = Date.now();
+  const open = S.requests.filter(r => !CLOSED.includes(r.Status) && r.Status !== 'On Hold');
+  const cnt = { overdue:0, urgent:0, soon:0 };
+  open.forEach(r => { const u = urgency(r, now); if (cnt[u] !== undefined) cnt[u]++; });
+  const unassigned = open.filter(r => !r.AssignedTo).length;
+  const tiles = [
+    ['overdue','red',cnt.overdue,'Overdue'], ['urgent','orange',cnt.urgent,'Due ≤ 24h'],
+    ['soon','amber',cnt.soon,'Due ≤ 48h'], ['unassigned','grey',unassigned,'Unassigned']
+  ];
+  $('#alerts').innerHTML = tiles.map(([k,c,n,l]) => `<button class="alert ${c} ${n ? '' : 'zero'} ${S.quick === k ? 'on' : ''}" data-q="${k}"><b>${n}</b><span>${l}</span></button>`).join('');
+  $('#alerts').querySelectorAll('.alert').forEach(b => b.onclick = () => { S.quick = S.quick === b.dataset.q ? '' : b.dataset.q; render(); });
+
+  let rows = S.requests.filter(S.quick ? (r => {
+      if (CLOSED.includes(r.Status) || r.Status === 'On Hold') return false;
+      return S.quick === 'unassigned' ? !r.AssignedTo : urgency(r, now) === S.quick;
+    }) : FILTERS[S.filter].fn);
+  if (S.q) rows = rows.filter(r => [r.ID, r.Client, r.Location, r.AssignedTo, r.CreatedBy, r.Deliverables, r.Status].join(' ').toLowerCase().includes(S.q));
+  rows.sort((a, b) => {
+    if (S.filter === 'done' && !S.quick) return new Date(b.CompletedAt || b.UpdatedAt) - new Date(a.CompletedAt || a.UpdatedAt);
+    return urgRank[urgency(a, now)] - urgRank[urgency(b, now)] || new Date(a.Deadline) - new Date(b.Deadline) || prioRank[a.Priority] - prioRank[b.Priority];
+  });
+
+  $('#list').innerHTML = rows.length ? rows.map(r => {
+    const u = urgency(r, now);
+    const st = r.Status === 'Info Needed' ? 'Info' : r.Status === 'On Hold' ? 'Hold' : r.Status;
+    const due = ['overdue','urgent','soon','ok'].includes(u) ? relDue(r) : r.Status === 'Completed' ? 'Done' : r.Status;
+    return `<div class="card u-${u}" data-id="${esc(r.ID)}" tabindex="0">
+      <div class="row1">
+        <div class="t"><div class="id">${esc(r.ID)}${r.ProjectType ? ' · ' + esc(r.ProjectType) : ''}${r.SystemKW ? ' · ' + esc(r.SystemKW) + ' kW' : ''}</div>
+          <div class="client">${esc(r.Client)}</div></div>
+        <div class="due ${u}">${esc(due)}<small>${esc(fmtDate(r.Deadline))}</small></div>
+      </div>
+      <div class="meta">
+        <span class="pill p-${esc(r.Priority)}">${esc(r.Priority)}</span>
+        <span class="pill s-${esc(st)}">${esc(r.Status)}</span>
+        ${String(r.Deliverables || '').split(',').filter(Boolean).map(d => `<span class="pill">${esc(d.trim())}</span>`).join('')}
+        <span class="who ${r.AssignedTo || CLOSED.includes(r.Status) ? '' : 'none'}" style="margin-left:auto">${r.AssignedTo ? '✎ ' + esc(r.AssignedTo) : CLOSED.includes(r.Status) ? '' : 'Not assigned'}</span>
+      </div></div>`;
+  }).join('') : `<div class="empty">${S.requests.length ? 'Nothing here.' : 'No design requests yet.' + (S.user.role !== 'designer' ? '<br>Tap “New request” to add the first one.' : '')}</div>`;
+  $('#list').querySelectorAll('.card').forEach(c => { c.onclick = () => openDetail(c.dataset.id); c.onkeydown = e => { if (e.key === 'Enter') openDetail(c.dataset.id); }; });
+}
+
+/* ---------------- modal helpers ---------------- */
+function openModal(html){ $('#sheet').innerHTML = html; $('#modal').classList.remove('hidden'); $('#sheet').scrollTop = 0; }
+function closeModal(){ $('#modal').classList.add('hidden'); S.open = null; }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) closeModal(); });
+
+function prioPicker(val, disabled){
+  return `<div class="prio">${PRIORITIES.map(p => `<label class="${p}"><input type="radio" name="Priority" value="${p}" ${p === val ? 'checked' : ''} ${disabled ? 'disabled' : ''}>${p}</label>`).join('')}</div>`;
+}
+function delivPicker(val, disabled){
+  const set = String(val || '').split(',').map(s => s.trim()).filter(Boolean);
+  const all = DELIVERABLES.concat(set.filter(s => !DELIVERABLES.includes(s)));
+  return `<div class="checks">${all.map(d => `<label><input type="checkbox" name="Deliverables" value="${esc(d)}" ${set.includes(d) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>${esc(d)}</label>`).join('')}</div>`;
+}
+function requestFields(r, canEdit){
+  const dis = canEdit ? '' : 'disabled';
+  const types = PROJECT_TYPES.includes(r.ProjectType) || !r.ProjectType ? PROJECT_TYPES : PROJECT_TYPES.concat(r.ProjectType);
+  return `
+    <label for="f-Client">Client / project name *</label>
+    <input id="f-Client" name="Client" type="text" value="${esc(r.Client)}" ${dis} placeholder="e.g. JJ Mills – Factory roof">
+    <div class="grid2">
+      <div><label for="f-Location">Location</label><input id="f-Location" name="Location" type="text" value="${esc(r.Location)}" ${dis} placeholder="Town / site"></div>
+      <div><label for="f-SystemKW">System size (kW)</label><input id="f-SystemKW" name="SystemKW" type="number" step="0.01" min="0" value="${esc(r.SystemKW)}" ${dis}></div>
+    </div>
+    <label for="f-ProjectType">Project type</label>
+    <select id="f-ProjectType" name="ProjectType" ${dis}><option value="">—</option>${types.map(t => `<option ${t === r.ProjectType ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+    <label>Drawings / outputs needed</label>${delivPicker(r.Deliverables, !canEdit)}
+    <label>Priority *</label>${prioPicker(r.Priority || 'Normal', !canEdit)}
+    <label for="f-Deadline">Deadline *</label>
+    <input id="f-Deadline" name="Deadline" type="datetime-local" value="${r.Deadline ? toLocalInput(r.Deadline) : ''}" ${dis}>
+    <label for="f-SalesNotes">Notes for design (site details, client needs, links)</label>
+    <textarea id="f-SalesNotes" name="SalesNotes" ${dis}>${esc(r.SalesNotes)}</textarea>`;
+}
+function readRequestFields(){
+  const g = n => $('#sheet [name="' + n + '"]');
+  const dl = g('Deadline').value;
+  return {
+    Client: g('Client').value.trim(), Location: g('Location').value.trim(), SystemKW: g('SystemKW').value.trim(),
+    ProjectType: g('ProjectType').value,
+    Deliverables: [...document.querySelectorAll('#sheet [name="Deliverables"]:checked')].map(i => i.value).join(', '),
+    Priority: (document.querySelector('#sheet [name="Priority"]:checked') || {}).value || 'Normal',
+    Deadline: dl ? new Date(dl).toISOString() : '',
+    SalesNotes: g('SalesNotes').value.trim()
+  };
+}
+
+/* ---------------- new request ---------------- */
+$('#newBtn').onclick = () => {
+  const d = new Date(); d.setDate(d.getDate() + 3); d.setHours(17, 0, 0, 0);
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>New design request</h2><div class="sub">Design team gets a phone alert as soon as you save.</div>
+    ${requestFields({ Priority:'Normal', Deadline:d.toISOString() }, true)}
+    <div class="actions"><button class="btn alt" onclick="closeModal()">Cancel</button><button class="btn accent" id="createBtn">Send to design</button></div>`);
+  $('#createBtn').onclick = async (e) => {
+    const r = readRequestFields();
+    if (!r.Client) return toast('Client / project name is required', true);
+    if (!r.Deadline) return toast('Set a deadline', true);
+    if (new Date(r.Deadline) < Date.now() && !confirm('That deadline is already past. Save anyway?')) return;
+    await busyBtn(e.target, async () => {
+      const created = await api('create', { request:r });
+      toast(`${created.ID} sent to design`); closeModal(); await refresh(false);
+    });
+  };
+};
+
+/* ---------------- detail ---------------- */
+async function openDetail(id){
+  const r = S.requests.find(x => x.ID === id); if (!r) return;
+  S.open = id;
+  const role = S.user.role;
+  const isSales = role === 'sales', isLead = role === 'lead', isAssignee = role === 'designer' && r.AssignedTo === S.user.name;
+  const u = urgency(r);
+  const designers = S.team.filter(m => m.team.toLowerCase() === 'design');
+  const statusOpts = isLead ? STATUSES : isAssignee ? ['Assigned','In Progress','Info Needed','Review','Completed'] : isSales ? [r.Status,'On Hold','Cancelled','New'].filter((v,i,a) => a.indexOf(v) === i) : [r.Status];
+  if (!statusOpts.includes(r.Status)) statusOpts.unshift(r.Status);
+  const canStatus = isLead || isAssignee || isSales;
+  const banner = u === 'overdue' ? `<div class="banner overdue">⚠ ${esc(relDue(r))} — deadline was ${esc(fmtDate(r.Deadline))}</div>`
+              : u === 'urgent' ? `<div class="banner urgent">⏰ ${esc(relDue(r))}</div>`
+              : u === 'soon' ? `<div class="banner soon">⏳ ${esc(relDue(r))}</div>` : '';
+
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>${esc(r.Client)}</h2>
+    <div class="sub">${esc(r.ID)} · requested by ${esc(r.CreatedBy)} · ${esc(fmtDate(r.Created))}</div>
+    ${banner}
+    <h3 style="font-size:14px;margin:0;color:var(--navy)">Request (Sales)</h3>
+    ${requestFields(r, isSales)}
+    ${isSales ? '' : '<div class="lock">🔒 Deadline, priority and request details are set by the Sales team.</div>'}
+
+    <div class="section"><h3>Design</h3>
+      <div class="grid2">
+        <div><label for="f-AssignedTo">Assigned designer</label>
+          <select id="f-AssignedTo" ${isLead ? '' : 'disabled'}><option value="">— Not assigned —</option>
+          ${designers.concat(r.AssignedTo && !designers.some(m => m.name === r.AssignedTo) ? [{ name:r.AssignedTo }] : []).map(m => `<option ${m.name === r.AssignedTo ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div>
+        <div><label for="f-Status">Status</label>
+          <select id="f-Status" ${canStatus ? '' : 'disabled'}>${statusOpts.map(s => `<option ${s === r.Status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <label for="f-DesignNotes">Design notes ${isLead || isAssignee ? '' : '(design team)'}</label>
+      <textarea id="f-DesignNotes" ${isLead || isAssignee ? '' : 'disabled'} placeholder="Progress, questions for sales, file location…">${esc(r.DesignNotes)}</textarea>
+      ${r.AssignedAt ? `<div class="lock">Assigned ${esc(fmtDate(r.AssignedAt))}${r.CompletedAt ? ' · completed ' + esc(fmtDate(r.CompletedAt)) : ''}</div>` : ''}
+    </div>
+    <div class="actions"><button class="btn alt" onclick="closeModal()">Close</button><button class="btn" id="saveBtn">Save changes</button></div>
+
+    <div class="section"><h3>Activity &amp; comments</h3>
+      <div class="comment"><input type="text" id="cmt" placeholder="Write a comment (other team gets a push)…" maxlength="1000"><button class="btn" id="cmtBtn">Send</button></div>
+      <ul class="log" id="log"><li><span class="spin"></span></li></ul>
+    </div>`);
+
+  $('#saveBtn').onclick = async (e) => {
+    const changes = {};
+    if (isSales) {
+      const f = readRequestFields();
+      if (!f.Client) return toast('Client / project name is required', true);
+      if (!f.Deadline) return toast('Set a deadline', true);
+      Object.keys(f).forEach(k => {
+        const old = k === 'Deadline' ? new Date(toLocalInput(r.Deadline)).toISOString() : String(r[k] ?? '');
+        if (String(f[k]) !== old) changes[k] = f[k];
+      });
+    }
+    if (isLead && $('#f-AssignedTo').value !== (r.AssignedTo || '')) changes.AssignedTo = $('#f-AssignedTo').value;
+    if (canStatus && $('#f-Status').value !== r.Status) changes.Status = $('#f-Status').value;
+    if ((isLead || isAssignee) && $('#f-DesignNotes').value.trim() !== String(r.DesignNotes || '')) changes.DesignNotes = $('#f-DesignNotes').value.trim();
+    if (!Object.keys(changes).length) return toast('No changes to save');
+    if (changes.Status === 'Info Needed' && !(changes.DesignNotes || r.DesignNotes)) return toast('Write what info you need in Design notes', true);
+    if (changes.Status === 'Cancelled' && !confirm('Cancel this design request?')) return;
+    await busyBtn(e.target, async () => {
+      await api('update', { id:r.ID, changes });
+      toast('Saved'); await refresh(false); closeModal();
+    });
+  };
+  const sendCmt = async () => {
+    const t = $('#cmt').value.trim(); if (!t) return;
+    await busyBtn($('#cmtBtn'), async () => { const log = await api('comment', { id:r.ID, text:t }); $('#cmt').value = ''; drawLog(log); });
+  };
+  $('#cmtBtn').onclick = sendCmt;
+  $('#cmt').addEventListener('keydown', e => { if (e.key === 'Enter') sendCmt(); });
+  try { drawLog(await api('log', { id:r.ID })); } catch(e){ $('#log').innerHTML = '<li>Could not load activity.</li>'; }
+}
+function drawLog(items){
+  if (!$('#log')) return;
+  $('#log').innerHTML = items.length ? items.map(l => `<li><time>${esc(fmtDate(l.time))}</time><b>${esc(l.by)}</b> ${l.action === 'Comment' ? '💬 ' : '· ' + esc(l.action) + ': '}${esc(l.detail)}</li>`).join('') : '<li>No activity yet.</li>';
+}
+
+async function busyBtn(btn, fn){
+  const t = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try { await fn(); } catch(e){ toast(e.message, true); } finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = t; } }
+}
+let toastT;
+function toast(msg, err){ const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), 3200); }
+
+/* =========================================================
+   DEMO MODE — runs on this device only, with sample data
+   ========================================================= */
+const Demo = (() => {
+  const K = 'regen-drt-demo';
+  const team = [
+    { name:'Uditha', team:'Design', lead:true }, { name:'Nimal', team:'Design', lead:false }, { name:'Sachini', team:'Design', lead:false },
+    { name:'Kavish', team:'Sales', lead:false }, { name:'Dilan', team:'Sales', lead:false }
+  ];
+  const H = 36e5, now = () => new Date().toISOString();
+  function seed(){
+    const t = Date.now(), at = h => new Date(t + h * H).toISOString();
+    const rows = [
+      ['DR-0001','Kavish','JJ Mills – Factory roof','Biyagama','150','Industrial','Roof layout, SLD, Structure, BOQ','Urgent',at(-5),'Client wants 3 phase, check transformer capacity.','Nimal','In Progress'],
+      ['DR-0002','Dilan','Perera residence','Kandy','10','Domestic hybrid','Roof layout, SLD, BOQ','High',at(18),'Hybrid with 10 kWh battery.','Sachini','Assigned'],
+      ['DR-0003','Kavish','St. Mary\'s School','Negombo','40','Commercial','Roof layout, Proposal','Normal',at(40),'Two buildings, asbestos roof on hall.','','New'],
+      ['DR-0004','Dilan','Fernando house','Moratuwa','5','Domestic on-grid','Roof layout, SLD','Normal',at(120),'','Nimal','Info Needed'],
+      ['DR-0005','Kavish','Green Tea Factory','Nuwara Eliya','100','Industrial','Roof layout, SLD, Structure, BOQ, Yield report','High',at(-30),'','Sachini','Completed']
+    ];
+    const req = rows.map(r => ({ ID:r[0], Created:at(-72), CreatedBy:r[1], Client:r[2], Location:r[3], SystemKW:r[4], ProjectType:r[5], Deliverables:r[6], Priority:r[7], Deadline:r[8], SalesNotes:r[9],
+      AssignedTo:r[10], AssignedAt:r[10] ? at(-48) : '', Status:r[11], DesignNotes:r[11] === 'Info Needed' ? 'Need roof photos and CEB account number.' : '', CompletedAt:r[11] === 'Completed' ? at(-34) : '', UpdatedAt:at(-2), UpdatedBy:'Uditha', AlertStage:'' }));
+    const log = req.map(r => ({ id:r.ID, time:r.Created, by:r.CreatedBy, action:'Created', detail:r.Priority + ' · due ' + fmtDate(r.Deadline) }));
+    return { req, log };
+  }
+  const load = () => { try { return JSON.parse(localStorage.getItem(K)) || seed(); } catch(e){ return seed(); } };
+  const save = d => { try { localStorage.setItem(K, JSON.stringify(d)); } catch(e){} };
+  function call(action, data, user){
+    const d = load(); let out;
+    const lg = (id, action, detail) => d.log.push({ id, time:now(), by:user.name, action, detail });
+    if (action === 'list') out = { requests:d.req, team, now:now() };
+    else if (action === 'log') out = d.log.filter(l => l.id === data.id).slice().reverse();
+    else if (action === 'comment') { lg(data.id, 'Comment', data.text); out = d.log.filter(l => l.id === data.id).slice().reverse(); }
+    else if (action === 'create') {
+      const n = Math.max(0, ...d.req.map(r => +r.ID.slice(3))) + 1;
+      out = Object.assign({ ID:'DR-' + String(n).padStart(4,'0'), Created:now(), CreatedBy:user.name, AssignedTo:'', AssignedAt:'', Status:'New', DesignNotes:'', CompletedAt:'', UpdatedAt:now(), UpdatedBy:user.name, AlertStage:'' }, data.request);
+      d.req.push(out); lg(out.ID, 'Created', out.Priority + ' · due ' + fmtDate(out.Deadline));
+    } else if (action === 'update') {
+      const r = d.req.find(x => x.ID === data.id), c = data.changes, notes = [];
+      Object.keys(c).forEach(k => {
+        if (k === 'AssignedTo') { r.AssignedAt = c[k] ? now() : ''; if (c[k] && r.Status === 'New') r.Status = 'Assigned'; notes.push(c[k] ? 'Assigned to ' + c[k] : 'Unassigned'); }
+        else if (k === 'Status') { r.CompletedAt = c[k] === 'Completed' ? now() : ''; notes.push('Status → ' + c[k]); }
+        else notes.push(k === 'Deadline' ? 'Deadline → ' + fmtDate(c[k]) : k === 'Priority' ? 'Priority → ' + c[k] : k + ' updated');
+        r[k] = c[k];
+      });
+      r.UpdatedAt = now(); r.UpdatedBy = user.name; lg(r.ID, 'Updated', notes.join('; ')); out = r;
+    } else if (action === 'login') out = user;
+    save(d);
+    return new Promise(res => setTimeout(() => res(JSON.parse(JSON.stringify(out))), 150));
+  }
+  return { call, team, reset: () => localStorage.removeItem(K) };
+})();
+
+function pickDemoUser(){
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>Try the demo</h2><div class="sub">Sample data, saved only on this device. Pick who you want to be:</div>
+    <div class="actions" style="flex-direction:column">
+      <button class="btn" data-u="Uditha|lead">Uditha — Design Lead (assigns jobs)</button>
+      <button class="btn alt" data-u="Nimal|designer">Nimal — Designer</button>
+      <button class="btn alt" data-u="Kavish|sales">Kavish — Sales (adds requests)</button>
+    </div>
+    <p style="margin-top:14px"><button class="link" id="resetDemo">Reset demo data</button></p>`);
+  $('#sheet').querySelectorAll('[data-u]').forEach(b => b.onclick = () => {
+    const [name, role] = b.dataset.u.split('|');
+    closeModal(); startDemo({ name, role, team: role === 'sales' ? 'Sales' : 'Design' });
+  });
+  $('#resetDemo').onclick = () => { Demo.reset(); toast('Demo data reset'); };
+}
+async function startDemo(user){
+  if (!user) return pickDemoUser();
+  S.demo = true; S.user = user; S.key = 'demo';
+  store.set({ demo:true, user, key:'demo' });
+  showApp(); await refresh(true);
+}
+
+/* ---------------- install as app ---------------- */
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+boot();
+</script>
+</body>
+</html>

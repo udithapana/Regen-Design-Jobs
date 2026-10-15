@@ -1,0 +1,15 @@
+{
+  "id": "./?app=regen-design-requests",
+  "name": "Regen Design Requests",
+  "short_name": "Design Jobs",
+  "description": "Sales to Design job tracker with deadlines, priorities and alerts",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f4f7",
+  "theme_color": "#16213a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
