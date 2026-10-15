@@ -1,6 +1,6 @@
 // Regen Design Requests — offline shell cache (data always comes live from the server)
-const CACHE = 'regen-design-requests-v2';
-const SHELL = ['./', './index.html', './manifest.json?v=2', './icon-192.png', './icon-512.png'];
+const CACHE = 'regen-design-requests-v3';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
