@@ -1,5 +1,5 @@
 // Regen Design Requests — offline shell cache (data always comes live from the server)
-const CACHE = 'regen-design-jobs-v3';
+const CACHE = 'regen-design-jobs-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './regen-logo.png'];
 
 self.addEventListener('install', e => {

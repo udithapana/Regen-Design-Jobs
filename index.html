@@ -22,14 +22,14 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-u
 button,input,select,textarea{font:inherit;color:inherit}
 .hidden{display:none!important}
 header{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
-.bar{display:flex;align-items:center;gap:10px;max-width:960px;margin:0 auto}
+.bar{display:flex;align-items:center;gap:10px;max-width:1180px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
 .logo{width:32px;height:32px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}
 .brand b{display:block;font-size:16px;letter-spacing:.2px}
 .brand small{display:block;opacity:.7;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .icon-btn{background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:10px;height:36px;min-width:36px;padding:0 10px;cursor:pointer;display:grid;place-items:center}
 .icon-btn:active{background:rgba(255,255,255,.2)}
-main{max-width:960px;margin:0 auto;padding:14px 16px 110px}
+main{max-width:1180px;margin:0 auto;padding:14px 16px 110px}
 .alerts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
 .alert{border:0;border-radius:12px;padding:10px 8px;text-align:left;cursor:pointer;background:var(--card);box-shadow:var(--shadow)}
 .alert b{display:block;font-size:22px;line-height:1.1}
@@ -53,7 +53,12 @@ main{max-width:960px;margin:0 auto;padding:14px 16px 110px}
 .client{font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis}
 .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
 .pill{font-size:12px;border-radius:999px;padding:2px 9px;background:var(--grey-bg);white-space:nowrap}
+.p-VeryUrgent{background:var(--red);color:#fff;font-weight:700}
 .p-Urgent{background:var(--red-bg);color:var(--red);font-weight:600}
+.due-hint{font-size:13px;line-height:1.4;background:var(--blue-bg);color:#123a7a;border-radius:10px;padding:8px 10px;margin-top:6px}
+.due-hint.vu{background:var(--red-bg);color:#7a1d16}
+.due-hint small{display:block;opacity:.8;margin-top:2px}
+.vu-reason{font-size:12.5px;color:var(--red);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-High{background:var(--orange-bg);color:var(--orange);font-weight:600}
 .p-Normal{background:var(--blue-bg);color:var(--blue)}
 .p-Low{background:var(--grey-bg);color:var(--muted)}
@@ -66,7 +71,7 @@ main{max-width:960px;margin:0 auto;padding:14px 16px 110px}
 .who.none{color:var(--red);font-weight:600}
 .empty{text-align:center;color:var(--muted);padding:40px 10px}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink);border:0;border-radius:16px;padding:14px 18px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;z-index:4}
-footer{max-width:960px;margin:0 auto;padding:0 16px 90px;font-size:11px;color:var(--muted);text-align:center}
+footer{max-width:1180px;margin:0 auto;padding:0 16px 90px;font-size:11px;color:var(--muted);text-align:center}
 /* sheet / modal */
 .scrim{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
@@ -84,10 +89,11 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
 .checks input{margin:0}
 .checks label:has(input:checked){background:var(--navy);color:#fff;border-color:var(--navy)}
 .checks label:has(input:disabled){cursor:default}
-.prio{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.prio label{margin:0;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 4px;color:var(--ink);cursor:pointer;font-size:14px}
+.prio{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.prio label{margin:0;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 4px;color:var(--ink);cursor:pointer;font-size:13.5px;line-height:1.2;display:flex;align-items:center;justify-content:center;min-height:44px}
 .prio input{display:none}
 .prio label:has(input:checked){border-color:currentColor;font-weight:700}
+.prio .VeryUrgent:has(input:checked){background:var(--red);color:#fff;border-color:var(--red)}
 .prio .Urgent:has(input:checked){background:var(--red-bg);color:var(--red)}
 .prio .High:has(input:checked){background:var(--orange-bg);color:var(--orange)}
 .prio .Normal:has(input:checked){background:var(--blue-bg);color:var(--blue)}
@@ -125,6 +131,23 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
 .rep-stats b{display:block;font-size:18px;line-height:1.2}
 .rep-stats span{font-size:11px;color:var(--muted)}
 .brand b{white-space:nowrap}
+/* ---- desktop / tablet: every filter tab visible, aligned with the search box ---- */
+@media(min-width:760px){
+  main{padding:22px 28px 120px}
+  header{padding-left:28px;padding-right:28px}
+  .alerts{gap:12px;margin-bottom:16px}
+  .alert{padding:14px 16px}
+  .alert b{font-size:26px}
+  .toolbar{flex-wrap:nowrap;align-items:flex-start;gap:16px;margin-bottom:16px}
+  .chips{flex:1 1 auto;flex-wrap:wrap;overflow:visible;gap:8px}
+  .chip{padding:8px 16px}
+  .search{flex:0 0 300px;padding:9px 14px}
+  .fab{right:max(28px,calc((100vw - 1180px)/2 + 28px));bottom:28px}
+}
+@media(min-width:1040px){
+  .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .empty{grid-column:1/-1}
+}
 @media(max-width:520px){.alerts{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}
   .toolbar{flex-direction:column-reverse}.search{flex:none;width:100%}.chips{flex:none;width:100%}}
 </style>
@@ -193,7 +216,66 @@ const API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxAG405fXcTWJ5P
 
 const DELIVERABLES = ['Roof layout', 'SLD', 'Structure', 'BOQ', 'Proposal', 'Yield report'];
 const PROJECT_TYPES = ['Domestic on-grid', 'Domestic hybrid', 'Commercial', 'Industrial', 'Ground mount', 'Other'];
-const PRIORITIES = ['Urgent', 'High', 'Normal', 'Low'];
+/* ---- Due-date rules (identical in the app and in Code.gs) ----
+   Working days skip Saturdays, Sundays and the holidays in the Sheet's "Holidays" tab.
+   A deadline falls at 5:00 pm on its last working day, counted from the day after the request. */
+const DUE_RULES = {
+  'Very Urgent': { days: 1, queue: false },   // reason required, existing workload ignored
+  'Urgent':      { days: 1, queue: true },
+  'High':        { days: 2, queue: true },
+  'Normal':      { days: 3, queue: true },
+  'Low':         { days: 4, queue: true }
+};
+const PRIORITY_ORDER = ['Very Urgent', 'Urgent', 'High', 'Normal', 'Low'];
+const WORKLOAD_STATUSES = ['New', 'Assigned', 'In Progress', 'Info Needed', 'Review'];
+const WORK_END_HOUR = 17;
+const SL_OFFSET_MIN = 330;   // Sri Lanka time, UTC+05:30, no daylight saving
+const VERY_URGENT_REASON_MIN = 10;
+const DEFAULT_HOLIDAYS = [
+  ['2026-01-03','Duruthu Full Moon Poya Day'],['2026-01-15','Tamil Thai Pongal Day'],['2026-02-01','Navam Full Moon Poya Day'],
+  ['2026-02-04','Independence Day'],['2026-02-15','Mahasivarathri Day'],['2026-03-02','Medin Full Moon Poya Day'],
+  ['2026-03-21','Eid-Ul-Fitr (Ramazan Festival Day)'],['2026-04-01','Bak Full Moon Poya Day'],['2026-04-03','Good Friday'],
+  ['2026-04-13','Day prior to Sinhala & Tamil New Year Day'],['2026-04-14','Sinhala & Tamil New Year Day'],
+  ['2026-05-01','Vesak Full Moon Poya Day / May Day'],['2026-05-02','Day following Vesak Full Moon Poya Day'],
+  ['2026-05-28','Eid-Ul-Alha (Hadji Festival Day)'],['2026-05-30','Adhi Poson Full Moon Poya Day'],['2026-06-29','Poson Full Moon Poya Day'],
+  ['2026-07-29','Esala Full Moon Poya Day'],['2026-08-26','Milad-Un-Nabi (Holy Prophet\'s Birthday)'],['2026-08-27','Nikini Full Moon Poya Day'],
+  ['2026-09-26','Binara Full Moon Poya Day'],['2026-10-25','Vap Full Moon Poya Day'],['2026-11-08','Deepavali Festival Day'],
+  ['2026-11-24','Ill Full Moon Poya Day'],['2026-12-23','Unduvap Full Moon Poya Day'],['2026-12-25','Christmas Day'],
+  ['2027-01-15','Tamil Thai Pongal Day'],['2027-01-22','Duruthu Full Moon Poya Day'],['2027-02-04','Independence Day'],
+  ['2027-02-20','Navam Full Moon Poya Day'],['2027-03-06','Mahasivarathri Day'],['2027-03-10','Eid-Ul-Fitr (Ramazan Festival Day)'],
+  ['2027-03-22','Medin Full Moon Poya Day'],['2027-03-26','Good Friday'],['2027-04-13','Day prior to Sinhala & Tamil New Year Day'],
+  ['2027-04-14','Sinhala & Tamil New Year Day'],['2027-04-20','Bak Full Moon Poya Day'],['2027-05-01','May Day'],
+  ['2027-05-17','Eid-Ul-Alha (Hadji Festival Day)'],['2027-05-19','Vesak Full Moon Poya Day'],['2027-05-20','Day following Vesak Full Moon Poya Day'],
+  ['2027-06-18','Poson Full Moon Poya Day'],['2027-07-18','Esala Full Moon Poya Day'],['2027-08-15','Milad-Un-Nabi (Holy Prophet\'s Birthday)'],
+  ['2027-08-16','Nikini Full Moon Poya Day'],['2027-09-15','Binara Full Moon Poya Day'],['2027-10-15','Vap Full Moon Poya Day'],
+  ['2027-10-28','Deepawali Festival Day'],['2027-11-13','Ill Full Moon Poya Day'],['2027-12-13','Unduwap Full Moon Poya Day'],
+  ['2027-12-25','Christmas Day']
+];
+function slDay_(ms) { return new Date(ms + SL_OFFSET_MIN * 6e4).toISOString().slice(0, 10); }
+function nextDay_(day) { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); }
+function isWorkDay_(day, hol) { const w = new Date(day + 'T00:00:00Z').getUTCDay(); return w !== 0 && w !== 6 && !hol[day]; }
+function addWorkDays_(fromMs, n, hol) {
+  let day = slDay_(fromMs), c = 0;
+  while (c < n) { day = nextDay_(day); if (isWorkDay_(day, hol)) c++; }
+  return Date.parse(day + 'T' + String(WORK_END_HOUR).padStart(2, '0') + ':00:00Z') - SL_OFFSET_MIN * 6e4;
+}
+/** Earliest allowed deadline for a priority, given the open design workload.
+ *  Workload = the working days of every pending job (by its priority), shared across the active designers. */
+function earliestDue_(priority, requests, designerCount, hol, nowMs, excludeId) {
+  const rule = DUE_RULES[priority] || DUE_RULES.Normal;
+  const pending = requests.filter(r => r.ID !== excludeId && WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
+  const loadDays = pending.reduce((s, r) => s + (DUE_RULES[r.Priority] || DUE_RULES.Normal).days, 0);
+  const team = Math.max(1, designerCount || 0);
+  const queueDays = rule.queue ? Math.ceil(loadDays / team) : 0;
+  return {
+    due: addWorkDays_(nowMs, queueDays + rule.days, hol),
+    workloadEnd: queueDays ? addWorkDays_(nowMs, queueDays, hol) : null,
+    queueDays: queueDays, needDays: rule.days, pending: pending.length, loadDays: loadDays, team: team, queue: rule.queue
+  };
+}
+
+const PRIORITIES = PRIORITY_ORDER;
+const prioCls = p => String(p || '').replace(/\s+/g, '');
 const STATUSES = ['New', 'Assigned', 'In Progress', 'Info Needed', 'Review', 'Completed', 'On Hold', 'Cancelled'];
 const CLOSED = ['Completed', 'Cancelled'];
 const SOON_H = 48, URGENT_H = 24;
@@ -237,7 +319,7 @@ function relDue(r){
 }
 const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit', hour12:true }) : '';
 const toLocalInput = iso => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,16); };
-const prioRank = { Urgent:0, High:1, Normal:2, Low:3 };
+const prioRank = { 'Very Urgent':0, Urgent:1, High:2, Normal:3, Low:4 };
 const urgRank = { overdue:0, urgent:1, soon:2, ok:3, idle:4, done:5 };
 
 /* ---------------- boot / login ---------------- */
@@ -318,7 +400,7 @@ async function refresh(manual){
   if (manual) $('#refreshBtn').innerHTML = '<span class="spin"></span>';
   try {
     const d = await api('list');
-    S.requests = d.requests; S.team = d.team;
+    S.requests = d.requests; S.team = d.team; setHolidays(d.holidays);
     render();
   } catch(e){
     if (/team key|not found in the team/i.test(e.message)) { toast(e.message + ' — please sign in again', true); $('#logoutBtn').click(); }
@@ -382,11 +464,11 @@ function render(){
         <div class="due ${u}">${esc(due)}<small>${esc(fmtDate(r.Deadline))}</small></div>
       </div>
       <div class="meta">
-        <span class="pill p-${esc(r.Priority)}">${esc(r.Priority)}</span>
+        <span class="pill p-${esc(prioCls(r.Priority))}">${esc(r.Priority)}</span>
         <span class="pill s-${esc(st)}">${esc(r.Status)}</span>
         ${String(r.Deliverables || '').split(',').filter(Boolean).map(d => `<span class="pill">${esc(d.trim())}</span>`).join('')}
         <span class="who ${r.AssignedTo || CLOSED.includes(r.Status) ? '' : 'none'}" style="margin-left:auto">${r.AssignedTo ? '✎ ' + esc(r.AssignedTo) : CLOSED.includes(r.Status) ? '' : 'Not assigned'}</span>
-      </div></div>`;
+      </div>${r.Priority === 'Very Urgent' && r.UrgentReason ? `<div class="vu-reason">⚡ ${esc(r.UrgentReason)}</div>` : ''}</div>`;
   }).join('') : `<div class="empty">${S.requests.length ? 'Nothing here.' : 'No design requests yet.' + (S.user.role !== 'designer' ? '<br>Tap “New request” to add the first one.' : '')}</div>`;
   $('#list').querySelectorAll('.card').forEach(c => { c.onclick = () => openDetail(c.dataset.id); c.onkeydown = e => { if (e.key === 'Enter') openDetail(c.dataset.id); }; });
 }
@@ -398,7 +480,7 @@ $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeM
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) closeModal(); });
 
 function prioPicker(val, disabled){
-  return `<div class="prio">${PRIORITIES.map(p => `<label class="${p}"><input type="radio" name="Priority" value="${p}" ${p === val ? 'checked' : ''} ${disabled ? 'disabled' : ''}>${p}</label>`).join('')}</div>`;
+  return `<div class="prio">${PRIORITIES.map(p => `<label class="${prioCls(p)}"><input type="radio" name="Priority" value="${p}" ${p === val ? 'checked' : ''} ${disabled ? 'disabled' : ''}>${p}</label>`).join('')}</div>`;
 }
 function delivPicker(val, disabled){
   const set = String(val || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -419,36 +501,90 @@ function requestFields(r, canEdit){
     <select id="f-ProjectType" name="ProjectType" ${dis}><option value="">—</option>${types.map(t => `<option ${t === r.ProjectType ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
     <label>Drawings / outputs needed</label>${delivPicker(r.Deliverables, !canEdit)}
     <label>Priority *</label>${prioPicker(r.Priority || 'Normal', !canEdit)}
+    <div id="reasonBox" class="${r.Priority === 'Very Urgent' ? '' : 'hidden'}">
+      <label for="f-UrgentReason">Reason for Very Urgent *</label>
+      <textarea id="f-UrgentReason" name="UrgentReason" maxlength="500" ${dis} placeholder="Why this can't wait — e.g. client meeting with the MD tomorrow 9 am">${esc(r.UrgentReason)}</textarea>
+    </div>
     <label for="f-Deadline">Deadline *</label>
     <input id="f-Deadline" name="Deadline" type="datetime-local" value="${r.Deadline ? toLocalInput(r.Deadline) : ''}" ${dis}>
+    ${canEdit ? '<div class="due-hint" id="dueHint"></div>' : ''}
     <label for="f-SalesNotes">Notes for design (site details, client needs, links)</label>
     <textarea id="f-SalesNotes" name="SalesNotes" ${dis}>${esc(r.SalesNotes)}</textarea>`;
 }
 function readRequestFields(){
   const g = n => $('#sheet [name="' + n + '"]');
   const dl = g('Deadline').value;
-  return {
+  const out = {
     Client: g('Client').value.trim(), Location: g('Location').value.trim(), SystemKW: g('SystemKW').value.trim(),
     ProjectType: g('ProjectType').value,
     Deliverables: [...document.querySelectorAll('#sheet [name="Deliverables"]:checked')].map(i => i.value).join(', '),
     Priority: (document.querySelector('#sheet [name="Priority"]:checked') || {}).value || 'Normal',
     Deadline: dl ? new Date(dl).toISOString() : '',
-    SalesNotes: g('SalesNotes').value.trim()
+    SalesNotes: g('SalesNotes').value.trim(),
+    UrgentReason: ''
   };
+  out.UrgentReason = out.Priority === 'Very Urgent' ? g('UrgentReason').value.trim() : '';
+  return out;
+}
+
+/* ---------------- due-date rules in the form ---------------- */
+function setHolidays(list){ S.holidays = Object.fromEntries(Array.isArray(list) ? list : DEFAULT_HOLIDAYS); }
+function designerCount(){ return S.team.filter(m => String(m.team).toLowerCase() === 'design').length; }
+function earliestFor(priority, excludeId){ return earliestDue_(priority, S.requests, designerCount(), S.holidays || Object.fromEntries(DEFAULT_HOLIDAYS), Date.now(), excludeId); }
+const wd = n => n + ' working day' + (n === 1 ? '' : 's');
+// opts: { isNew, excludeId, origDeadline, origPriority }
+function needsDueCheck(f, opts){
+  if (opts.isNew) return true;
+  const lowered = PRIORITY_ORDER.indexOf(f.Priority) > PRIORITY_ORDER.indexOf(opts.origPriority);
+  return lowered || (f.Deadline && new Date(f.Deadline) < new Date(opts.origDeadline));
+}
+function dueProblem(f, opts){
+  if (f.Priority === 'Very Urgent' && f.UrgentReason.length < VERY_URGENT_REASON_MIN) return 'Give a reason for Very Urgent (at least ' + VERY_URGENT_REASON_MIN + ' characters)';
+  if (!f.Deadline) return 'Set a deadline';
+  if (needsDueCheck(f, opts)) {
+    const e = earliestFor(f.Priority, opts.excludeId);
+    if (new Date(f.Deadline).getTime() < e.due - 60000) return 'Earliest allowed deadline for ' + f.Priority + ' is ' + fmtDate(new Date(e.due).toISOString());
+  }
+  return '';
+}
+function wireDueRules(opts){
+  const dl = $('#f-Deadline'), hint = $('#dueHint'); if (!dl || !hint) return;
+  const prio = () => (document.querySelector('#sheet [name="Priority"]:checked') || {}).value || 'Normal';
+  const show = (resetToEarliest) => {
+    const p = prio(), e = earliestFor(p, opts.excludeId), dueIso = new Date(e.due).toISOString();
+    $('#reasonBox').classList.toggle('hidden', p !== 'Very Urgent');
+    if (opts.isNew && (resetToEarliest || !dl.value || new Date(dl.value) < e.due - 60000)) dl.value = toLocalInput(dueIso);
+    const lowered = !opts.isNew && PRIORITY_ORDER.indexOf(p) > PRIORITY_ORDER.indexOf(opts.origPriority);
+    dl.min = toLocalInput(opts.isNew || lowered ? dueIso : new Date(Math.min(e.due, new Date(opts.origDeadline).getTime())).toISOString());
+    const lead = opts.isNew || lowered ? 'Earliest allowed' : 'Earliest if you move it earlier';
+    let html;
+    if (p === 'Very Urgent') {
+      html = `⚡ <b>Very Urgent:</b> ${lead.toLowerCase()} <b>${esc(fmtDate(dueIso))}</b> — 1 working day; the design team's current workload is not counted. A reason is required.`;
+    } else if (e.queueDays) {
+      html = `${lead}: <b>${esc(fmtDate(dueIso))}</b><small>Design team has ${e.pending} pending job${e.pending === 1 ? '' : 's'} ≈ ${wd(e.queueDays)} of work for ${e.team} designer${e.team === 1 ? '' : 's'}, then ${wd(e.needDays)} for ${esc(p)}.</small>`;
+    } else {
+      html = `${lead}: <b>${esc(fmtDate(dueIso))}</b><small>${wd(e.needDays)} for ${esc(p)} — the design team has no pending work.</small>`;
+    }
+    hint.className = 'due-hint' + (p === 'Very Urgent' ? ' vu' : '');
+    hint.innerHTML = html + '<small>Working days skip weekends and public holidays.</small>';
+  };
+  document.querySelectorAll('#sheet [name="Priority"]').forEach(i => i.addEventListener('change', () => show(true)));
+  show(false);
 }
 
 /* ---------------- new request ---------------- */
 $('#newBtn').onclick = () => {
-  const d = new Date(); d.setDate(d.getDate() + 3); d.setHours(17, 0, 0, 0);
+  const d = new Date(earliestFor('Normal').due);
   openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
     <h2>New design request</h2><div class="sub">Design team gets a phone alert as soon as you save.</div>
     ${requestFields({ Priority:'Normal', Deadline:d.toISOString() }, true)}
     <div class="actions"><button class="btn alt" onclick="closeModal()">Cancel</button><button class="btn accent" id="createBtn">Send to design</button></div>`);
+  const opts = { isNew:true };
+  wireDueRules(opts);
   $('#createBtn').onclick = async (e) => {
     const r = readRequestFields();
     if (!r.Client) return toast('Client / project name is required', true);
-    if (!r.Deadline) return toast('Set a deadline', true);
-    if (new Date(r.Deadline) < Date.now() && !confirm('That deadline is already past. Save anyway?')) return;
+    const bad = dueProblem(r, opts); if (bad) return toast(bad, true);
     await busyBtn(e.target, async () => {
       const created = await api('create', { request:r });
       toast(`${created.ID} sent to design`); closeModal(); await refresh(false);
@@ -497,13 +633,15 @@ async function openDetail(id){
       <div class="comment"><input type="text" id="cmt" placeholder="Write a comment (other team gets a push)…" maxlength="1000"><button class="btn" id="cmtBtn">Send</button></div>
       <ul class="log" id="log"><li><span class="spin"></span></li></ul>
     </div>`);
+  const dueOpts = { isNew:false, excludeId:r.ID, origDeadline:r.Deadline, origPriority:r.Priority };
+  if (isSales) wireDueRules(dueOpts);
 
   $('#saveBtn').onclick = async (e) => {
     const changes = {};
     if (isSales) {
       const f = readRequestFields();
       if (!f.Client) return toast('Client / project name is required', true);
-      if (!f.Deadline) return toast('Set a deadline', true);
+      const bad = dueProblem(f, dueOpts); if (bad) return toast(bad, true);
       Object.keys(f).forEach(k => {
         const old = k === 'Deadline' ? new Date(toLocalInput(r.Deadline)).toISOString() : String(r[k] ?? '');
         if (String(f[k]) !== old) changes[k] = f[k];
@@ -658,7 +796,7 @@ function openReport(){
 }
 
 async function freshData(){
-  try { const d = await api('list'); S.requests = d.requests; S.team = d.team; render(); } catch (e) { /* use the list already on screen */ }
+  try { const d = await api('list'); S.requests = d.requests; S.team = d.team; setHolidays(d.holidays); render(); } catch (e) { /* use the list already on screen */ }
 }
 function saveBlob(blob, name){
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
@@ -682,12 +820,12 @@ function buildReportCsv(){
   const rows = reportRows();
   const dt = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : ymd(d) + ' ' + d.toTimeString().slice(0, 5); };
   const cell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
-  const head = ['ID','Requested on','Requested by','Client / project','Location','System kW','Project type','Outputs','Priority','Deadline','Assigned to','Assigned on','Status','Completed on','Result','Days to complete','Sales notes','Design notes'];
+  const head = ['ID','Requested on','Requested by','Client / project','Location','System kW','Project type','Outputs','Priority','Deadline','Assigned to','Assigned on','Status','Completed on','Result','Days to complete','Very urgent reason','Sales notes','Design notes'];
   const lines = [head.map(cell).join(',')];
   rows.forEach(r => {
     const x = jobResult(r);
     lines.push([r.ID, dt(r.Created), r.CreatedBy, r.Client, r.Location, r.SystemKW, r.ProjectType, r.Deliverables, r.Priority, dt(r.Deadline),
-      r.AssignedTo, dt(r.AssignedAt), r.Status, dt(r.CompletedAt), x.text, x.days != null ? x.days.toFixed(1) : '', r.SalesNotes, r.DesignNotes].map(cell).join(','));
+      r.AssignedTo, dt(r.AssignedAt), r.Status, dt(r.CompletedAt), x.text, x.days != null ? x.days.toFixed(1) : '', r.UrgentReason, r.SalesNotes, r.DesignNotes].map(cell).join(','));
   });
   return { blob:new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' }), name:reportFileName('csv') };
 }
@@ -843,21 +981,21 @@ async function buildReportPdf(){
   // ---- requests by sales person
   heading('Requests by sales person');
   const sRows = [...by('CreatedBy')].sort((a, b) => b[1].length - a[1].length).map(([name, list]) => {
-    const st = statsOf(list), urgent = list.filter(r => r.Priority === 'Urgent' || r.Priority === 'High').length;
+    const st = statsOf(list), urgent = list.filter(r => r.Priority === 'Very Urgent' || r.Priority === 'Urgent' || r.Priority === 'High').length;
     return [{ t:name || '-', bold:true }, st.total, urgent, st.completed, st.open, st.overdue ? { t:st.overdue, bold:true, color:C.red } : '0', st.cancelled, rateCell(st)];
   });
-  table([{ h:'Sales person', w:186 }, { h:'Requests', w:80, align:'right' }, { h:'Urgent / High', w:90, align:'right' }, { h:'Completed', w:86, align:'right' },
+  table([{ h:'Sales person', w:186 }, { h:'Requests', w:80, align:'right' }, { h:'High or above', w:90, align:'right' }, { h:'Completed', w:86, align:'right' },
     { h:'Still open', w:86, align:'right' }, { h:'Overdue now', w:86, align:'right' }, { h:'Cancelled', w:86, align:'right' }, { h:'On-time rate', w:CW - 700, align:'right' }], sRows);
 
   // ---- full job list
   heading(`Job list (${rows.length})`);
   const dts = v => v ? new Date(v).toLocaleString('en-GB', { day:'numeric', month:'short', year:'2-digit', hour:'numeric', minute:'2-digit', hour12:true }) : '';
-  const prioColor = { Urgent:C.red, High:C.orange, Normal:C.blue, Low:C.muted };
+  const prioColor = { 'Very Urgent':C.red, Urgent:C.red, High:C.orange, Normal:C.blue, Low:C.muted };
   const kindColor = { ok:C.green, late:C.orange, bad:C.red, muted:C.muted };
   const jRows = rows.map(r => {
     const x = jobResult(r);
     return [{ t:r.ID, bold:true }, [r.Client, r.Location].filter(Boolean).join(' - '), [r.ProjectType, r.SystemKW ? r.SystemKW + ' kW' : ''].filter(Boolean).join(', '),
-      r.Deliverables, { t:r.Priority, bold:r.Priority === 'Urgent' || r.Priority === 'High', color:prioColor[r.Priority] },
+      r.Deliverables, { t:r.Priority, bold:r.Priority !== 'Normal' && r.Priority !== 'Low', color:prioColor[r.Priority] },
       dts(r.Created) + (r.CreatedBy ? ' - ' + r.CreatedBy : ''), dts(r.Deadline), r.AssignedTo ? r.AssignedTo : { t:'Not assigned', color:C.red },
       r.Status, dts(r.CompletedAt), { t:x.text, bold:x.kind === 'bad' || x.kind === 'late' || x.kind === 'ok', color:kindColor[x.kind] || C.ink }];
   });
@@ -916,7 +1054,7 @@ const Demo = (() => {
   function call(action, data, user){
     const d = load(); let out;
     const lg = (id, action, detail) => d.log.push({ id, time:now(), by:user.name, action, detail });
-    if (action === 'list') out = { requests:d.req, team, now:now() };
+    if (action === 'list') out = { requests:d.req, team, holidays:DEFAULT_HOLIDAYS, now:now() };
     else if (action === 'log') out = d.log.filter(l => l.id === data.id).slice().reverse();
     else if (action === 'comment') { lg(data.id, 'Comment', data.text); out = d.log.filter(l => l.id === data.id).slice().reverse(); }
     else if (action === 'create') {
