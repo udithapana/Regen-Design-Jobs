@@ -120,6 +120,10 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
 .demo-tag{background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
 @keyframes s{to{transform:rotate(360deg)}}
+.rep-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px}
+.rep-stats div{background:var(--grey-bg);border-radius:10px;padding:8px 4px;text-align:center}
+.rep-stats b{display:block;font-size:18px;line-height:1.2}
+.rep-stats span{font-size:11px;color:var(--muted)}
 .brand b{white-space:nowrap}
 @media(max-width:520px){.alerts{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}
   .toolbar{flex-direction:column-reverse}.search{flex:none;width:100%}.chips{flex:none;width:100%}}
@@ -160,6 +164,7 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
         <img src="icon-192.png" alt="" width="34" height="34" style="border-radius:9px;display:block;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.18)">
         <div style="min-width:0"><b>Design Requests<span id="demoTag" class="demo-tag hidden">DEMO</span></b><small id="whoami"></small></div>
       </div>
+      <button class="icon-btn" id="reportBtn" title="Report" aria-label="Download report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="M9.5 14.5 12 17l2.5-2.5"/></svg></button>
       <button class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">↻</button>
       <button class="icon-btn" id="logoutBtn" title="Sign out" aria-label="Sign out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
     </div>
@@ -295,6 +300,7 @@ $('#keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sig
 $('#demoBtn').onclick = () => pickDemoUser();
 $('#logoutBtn').onclick = () => { store.set({ user:null, key:'', demo:false }); S.user = null; S.key = ''; S.demo = false; S.requests = []; showLogin(); };
 $('#refreshBtn').onclick = () => refresh(true);
+$('#reportBtn').onclick = () => openReport();
 
 function showApp(){
   $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
@@ -525,6 +531,353 @@ async function openDetail(id){
 function drawLog(items){
   if (!$('#log')) return;
   $('#log').innerHTML = items.length ? items.map(l => `<li><time>${esc(fmtDate(l.time))}</time><b>${esc(l.by)}</b> ${l.action === 'Comment' ? '💬 ' : '· ' + esc(l.action) + ': '}${esc(l.detail)}</li>`).join('') : '<li>No activity yet.</li>';
+}
+
+/* =========================================================
+   REPORT — PDF (A4 landscape) and Excel (CSV) download
+   ========================================================= */
+const PDFLIB_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+const REPORT_FOOTER = {
+  copyright: () => `© ${new Date().getFullYear()} Regen Renewables (Pvt) Ltd. All Rights Reserved.`,
+  notice: 'This document, including all designs, drawings, specifications and technical information, is the intellectual property of Regen Renewables (Pvt) Ltd. It is confidential and may not be copied, reproduced, modified, distributed or shared with third parties without prior written consent.',
+  company: 'Regen Renewables (Pvt) Ltd.   |   31/10, Castle Street, Colombo 8. 00800 Sri Lanka   |   regen.lk'
+};
+const R = { period:'thisMonth', from:'', to:'', designer:'', status:'all' };
+
+function dayStart(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function ymd(d){ const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0,10); }
+function reportRange(){
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  switch (R.period) {
+    case 'thisMonth': return { from:new Date(y, m, 1), to:new Date(y, m + 1, 1), label:now.toLocaleString('en-GB', { month:'long', year:'numeric' }) };
+    case 'lastMonth': { const f = new Date(y, m - 1, 1); return { from:f, to:new Date(y, m, 1), label:f.toLocaleString('en-GB', { month:'long', year:'numeric' }) }; }
+    case 'last3': { const f = new Date(y, m - 2, 1); return { from:f, to:new Date(y, m + 1, 1), label:'' }; }
+    case 'thisYear': return { from:new Date(y, 0, 1), to:new Date(y + 1, 0, 1), label:'Year ' + y };
+    case 'custom': {
+      const f = R.from ? dayStart(R.from + 'T00:00') : new Date(2000, 0, 1);
+      const t = R.to ? new Date(dayStart(R.to + 'T00:00').getTime() + 864e5) : new Date(y + 1, 0, 1);
+      return { from:f, to:t, label:'' };
+    }
+    default: return { from:null, to:null, label:'All requests' };
+  }
+}
+const dShort = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+function rangeText(rg){
+  if (!rg.from) return 'All requests to date';
+  const last = new Date(rg.to.getTime() - 1);
+  return 'Requests raised ' + dShort(rg.from) + ' to ' + dShort(last) + (rg.label ? ' (' + rg.label + ')' : '');
+}
+function reportRows(){
+  const rg = reportRange();
+  return S.requests.filter(r => {
+    const c = new Date(r.Created);
+    if (rg.from && (c < rg.from || c >= rg.to)) return false;
+    if (R.designer === '__none') { if (r.AssignedTo) return false; }
+    else if (R.designer && r.AssignedTo !== R.designer) return false;
+    if (R.status === 'completed' && r.Status !== 'Completed') return false;
+    if (R.status === 'open' && CLOSED.includes(r.Status)) return false;
+    return true;
+  }).sort((a, b) => new Date(a.Created) - new Date(b.Created));
+}
+function spanText(ms){
+  const a = Math.abs(ms), d = Math.floor(a / 864e5), h = Math.floor(a % 864e5 / 36e5);
+  return d ? `${d}d ${h}h` : h ? `${h}h` : `${Math.max(1, Math.round(a / 6e4))}m`;
+}
+function jobResult(r, now = Date.now()){
+  const dl = new Date(r.Deadline).getTime();
+  if (r.Status === 'Completed') {
+    const c = new Date(r.CompletedAt || r.UpdatedAt).getTime();
+    return c <= dl ? { text:'On time', kind:'ok', onTime:true, days:(c - new Date(r.Created)) / 864e5 }
+                   : { text:'Late ' + spanText(c - dl), kind:'late', onTime:false, days:(c - new Date(r.Created)) / 864e5 };
+  }
+  if (r.Status === 'Cancelled') return { text:'Cancelled', kind:'muted' };
+  if (r.Status === 'On Hold') return { text:'On hold', kind:'muted', open:true, overdue: now > dl };
+  return now > dl ? { text:'Overdue ' + spanText(now - dl), kind:'bad', open:true, overdue:true }
+                  : { text:'Due in ' + spanText(dl - now), kind:'', open:true, overdue:false };
+}
+function statsOf(rows){
+  const s = { total:rows.length, completed:0, onTime:0, late:0, open:0, overdue:0, cancelled:0, days:[] };
+  rows.forEach(r => {
+    const x = jobResult(r);
+    if (r.Status === 'Cancelled') s.cancelled++;
+    else if (r.Status === 'Completed') { s.completed++; x.onTime ? s.onTime++ : s.late++; s.days.push(x.days); }
+    else { s.open++; if (x.overdue) s.overdue++; }
+  });
+  s.rate = s.completed ? Math.round(s.onTime / s.completed * 100) : null;
+  s.avg = s.days.length ? s.days.reduce((a, b) => a + b, 0) / s.days.length : null;
+  return s;
+}
+const fmtAvg = v => v == null ? '-' : v < 1 ? (v * 24).toFixed(1) + ' h' : v.toFixed(1) + ' d';
+
+function openReport(){
+  const designers = [...new Set(S.team.filter(m => m.team.toLowerCase() === 'design').map(m => m.name).concat(S.requests.map(r => r.AssignedTo).filter(Boolean)))].sort();
+  const canShare = !!(navigator.canShare && window.File && navigator.canShare({ files:[new File(['x'], 'x.pdf', { type:'application/pdf' })] }));
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>Download report</h2><div class="sub">A4 PDF with summary, designer performance and the full job list, or an Excel (CSV) file.</div>
+    <label for="r-period">Period (by request date)</label>
+    <select id="r-period">
+      <option value="thisMonth">This month</option><option value="lastMonth">Last month</option>
+      <option value="last3">Last 3 months</option><option value="thisYear">This year</option>
+      <option value="all">All time</option><option value="custom">Custom dates…</option>
+    </select>
+    <div class="grid2 ${R.period === 'custom' ? '' : 'hidden'}" id="r-custom">
+      <div><label for="r-from">From</label><input id="r-from" type="date" value="${esc(R.from)}"></div>
+      <div><label for="r-to">To</label><input id="r-to" type="date" value="${esc(R.to)}"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="r-designer">Designer</label>
+        <select id="r-designer"><option value="">All designers</option>${designers.map(n => `<option>${esc(n)}</option>`).join('')}<option value="__none">Not assigned</option></select></div>
+      <div><label for="r-status">Jobs</label>
+        <select id="r-status"><option value="all">All jobs</option><option value="completed">Completed only</option><option value="open">Open only</option></select></div>
+    </div>
+    <div class="rep-stats" id="r-preview"></div>
+    <div class="actions">
+      <button class="btn accent" id="r-pdf">Download PDF</button>
+      ${canShare ? '<button class="btn" id="r-share">Share PDF</button>' : ''}
+      <button class="btn alt" id="r-csv">Excel (CSV)</button>
+    </div>`);
+  $('#r-period').value = R.period; $('#r-designer').value = R.designer; $('#r-status').value = R.status;
+  const sync = () => {
+    R.period = $('#r-period').value; R.from = $('#r-from').value; R.to = $('#r-to').value;
+    R.designer = $('#r-designer').value; R.status = $('#r-status').value;
+    $('#r-custom').classList.toggle('hidden', R.period !== 'custom');
+    const s = statsOf(reportRows());
+    $('#r-preview').innerHTML = [[s.total, 'Jobs'], [s.completed, 'Completed'], [s.rate == null ? '-' : s.rate + '%', 'On time'], [s.overdue, 'Overdue now']]
+      .map(([v, l]) => `<div><b>${esc(v)}</b><span>${l}</span></div>`).join('');
+    ['r-pdf', 'r-share', 'r-csv'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !s.total; });
+  };
+  ['r-period', 'r-from', 'r-to', 'r-designer', 'r-status'].forEach(id => $('#' + id).addEventListener('change', sync));
+  sync();
+  $('#r-pdf').onclick = e => busyBtn(e.currentTarget, async () => { const f = await buildReportPdf(); saveBlob(f.blob, f.name); toast('Report downloaded'); });
+  if ($('#r-share')) $('#r-share').onclick = e => busyBtn(e.currentTarget, async () => {
+    const f = await buildReportPdf();
+    try { await navigator.share({ files:[new File([f.blob], f.name, { type:'application/pdf' })], title:'Design Request Report' }); }
+    catch (err) { if (err.name !== 'AbortError') { saveBlob(f.blob, f.name); toast('Sharing not available — downloaded instead'); } }
+  });
+  $('#r-csv').onclick = e => busyBtn(e.currentTarget, async () => { await freshData(); const f = buildReportCsv(); saveBlob(f.blob, f.name); toast('Excel file downloaded'); });
+}
+
+async function freshData(){
+  try { const d = await api('list'); S.requests = d.requests; S.team = d.team; render(); } catch (e) { /* use the list already on screen */ }
+}
+function saveBlob(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+}
+function reportFileName(ext){
+  const rg = reportRange();
+  const part = rg.from ? ymd(rg.from) + '_to_' + ymd(new Date(rg.to.getTime() - 1)) : 'all_to_' + ymd(new Date());
+  return `Regen-Design-Report_${part}.${ext}`;
+}
+function filterText(){
+  const bits = [];
+  if (R.designer) bits.push('Designer: ' + (R.designer === '__none' ? 'Not assigned' : R.designer));
+  if (R.status !== 'all') bits.push(R.status === 'completed' ? 'Completed jobs only' : 'Open jobs only');
+  return bits.join('  |  ');
+}
+
+/* ---------- Excel (CSV) ---------- */
+function buildReportCsv(){
+  const rows = reportRows();
+  const dt = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : ymd(d) + ' ' + d.toTimeString().slice(0, 5); };
+  const cell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+  const head = ['ID','Requested on','Requested by','Client / project','Location','System kW','Project type','Outputs','Priority','Deadline','Assigned to','Assigned on','Status','Completed on','Result','Days to complete','Sales notes','Design notes'];
+  const lines = [head.map(cell).join(',')];
+  rows.forEach(r => {
+    const x = jobResult(r);
+    lines.push([r.ID, dt(r.Created), r.CreatedBy, r.Client, r.Location, r.SystemKW, r.ProjectType, r.Deliverables, r.Priority, dt(r.Deadline),
+      r.AssignedTo, dt(r.AssignedAt), r.Status, dt(r.CompletedAt), x.text, x.days != null ? x.days.toFixed(1) : '', r.SalesNotes, r.DesignNotes].map(cell).join(','));
+  });
+  return { blob:new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' }), name:reportFileName('csv') };
+}
+
+/* ---------- PDF ---------- */
+let pdfLibP;
+function loadPdfLib(){
+  if (window.PDFLib) return Promise.resolve(window.PDFLib);
+  return pdfLibP = pdfLibP || new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = PDFLIB_URL; s.async = true;
+    s.onload = () => window.PDFLib ? res(window.PDFLib) : rej(new Error('PDF tool failed to load'));
+    s.onerror = () => { pdfLibP = null; rej(new Error('Could not load the PDF tool — check your internet connection')); };
+    document.head.appendChild(s);
+  });
+}
+// Standard PDF fonts only cover Western characters: swap the common symbols, replace anything else with "?"
+function pdfSafe(s){
+  return String(s ?? '').replace(/[\r\n\t]+/g, ' ').replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/→/g, '->').replace(/✎/g, '')
+    .replace(/[^\x20-\x7e\xa0-\xff–—‘’“”•…€™]/g, '?');
+}
+
+async function buildReportPdf(){
+  const [lib] = await Promise.all([loadPdfLib(), freshData()]);
+  const rows = reportRows();
+  if (!rows.length) throw new Error('No jobs in this report');
+  const { PDFDocument, StandardFonts, rgb } = lib;
+  const doc = await PDFDocument.create();
+  doc.setTitle('Regen Design Request Report'); doc.setAuthor('Regen Renewables (Pvt) Ltd.'); doc.setCreator('Regen Design Requests app');
+  const F = await doc.embedFont(StandardFonts.Helvetica), FB = await doc.embedFont(StandardFonts.HelveticaBold);
+  let logo = null;
+  try { logo = await doc.embedPng(await (await fetch('regen-logo.png')).arrayBuffer()); } catch (e) { /* report without logo */ }
+
+  const C = { ink:rgb(.094,.125,.184), muted:rgb(.4,.44,.52), line:rgb(.84,.86,.9), navy:rgb(.086,.129,.227), zebra:rgb(.965,.97,.98),
+    green:rgb(.024,.463,.278), red:rgb(.85,.176,.125), orange:rgb(.91,.35,.047), amber:rgb(.71,.28,.03), white:rgb(1,1,1), tile:rgb(.95,.955,.965), blue:rgb(.09,.36,.83) };
+  const W = 841.89, H = 595.28, M = 28, CW = W - 2 * M;
+  const tw = (t, f, s) => f.widthOfTextAtSize(pdfSafe(t), s);
+  function wrap(text, f, s, maxW, maxLines = 99){
+    const words = pdfSafe(text).split(/\s+/).filter(Boolean), out = []; let cur = '';
+    const push = w => { // break a single over-long word
+      while (tw(w, f, s) > maxW && w.length > 1) { let i = w.length; while (i > 1 && tw(w.slice(0, i), f, s) > maxW) i--; out.push(w.slice(0, i)); w = w.slice(i); }
+      return w;
+    };
+    words.forEach(w => {
+      const t = cur ? cur + ' ' + w : w;
+      if (tw(t, f, s) <= maxW) cur = t; else { if (cur) out.push(cur); cur = push(w); }
+    });
+    if (cur) out.push(cur);
+    if (out.length > maxLines) { const keep = out.slice(0, maxLines); let last = keep[maxLines - 1] + '…'; while (tw(last, f, s) > maxW && last.length > 2) last = last.slice(0, -2) + '…'; keep[maxLines - 1] = last; return keep; }
+    return out.length ? out : [''];
+  }
+
+  // footer geometry (measured, so nothing in the body can overlap it)
+  const FS = 6.6, FLH = 8.2;
+  const noticeLines = wrap(REPORT_FOOTER.notice, F, FS, CW);
+  const footerLines = 1 + noticeLines.length + 1;
+  const FOOT_TOP = M + (footerLines - 1) * FLH + FS + 6;   // y of the rule above the footer
+  const BOTTOM = FOOT_TOP + 8;                              // lowest y body content may use
+
+  const rg = reportRange(), period = rangeText(rg), filt = filterText();
+  const generated = 'Generated ' + new Date().toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true }) + ' by ' + S.user.name;
+  const pages = []; let page, y;
+  const text = (t, x, yy, f = F, s = 8, color = C.ink) => page.drawText(pdfSafe(t), { x, y:yy, size:s, font:f, color });
+  function newPage(first){
+    page = doc.addPage([W, H]); pages.push(page);
+    if (first) {
+      let x = M;
+      if (logo) { const lh = 52, lw = logo.width / logo.height * lh; page.drawImage(logo, { x:M, y:H - M - lh, width:lw, height:lh }); x = M + lw + 14; }
+      text('Design Request Report', x, H - M - 18, FB, 18, C.navy);
+      text('Regen Renewables (Pvt) Ltd.  |  Design team job tracker', x, H - M - 31, F, 8.5, C.muted);
+      text(period, x, H - M - 44, FB, 9);
+      if (filt) text(filt, x, H - M - 55, F, 8, C.ink);
+      text(generated, W - M - tw(generated, F, 7.5), H - M - 10, F, 7.5, C.muted);
+      y = H - M - 66;
+    } else {
+      text('Design Request Report', M, H - M - 9, FB, 9, C.navy);
+      text(period, M + tw('Design Request Report', FB, 9) + 10, H - M - 9, F, 8, C.muted);
+      y = H - M - 16;
+    }
+    page.drawLine({ start:{ x:M, y }, end:{ x:W - M, y }, thickness:.8, color:C.line });
+    y -= 14;
+  }
+  const ensure = h => { if (y - h < BOTTOM) newPage(false); };
+  function heading(t){ ensure(40); text(t, M, y - 10, FB, 11, C.navy); y -= 18; }
+
+  // table: cols [{h, w, align}], cells are strings or {t, color, bold}
+  function table(cols, body, opt = {}){
+    const fs = opt.size || 7.6, lh = fs + 2.4, pad = 4;
+    const drawHead = () => {
+      const hh = 16;
+      page.drawRectangle({ x:M, y:y - hh, width:CW, height:hh, color:C.navy });
+      let x = M; cols.forEach(c => {
+        const t = pdfSafe(c.h), w = tw(t, FB, 7.2);
+        text(t, c.align === 'right' ? x + c.w - pad - w : c.align === 'center' ? x + (c.w - w) / 2 : x + pad, y - 11, FB, 7.2, C.white); x += c.w;
+      });
+      y -= hh;
+    };
+    ensure(16 + lh + 2 * pad); drawHead();
+    body.forEach((row, ri) => {
+      const cells = row.map((v, i) => { const o = typeof v === 'object' && v ? v : { t:v }; const f = o.bold ? FB : F;
+        return { ...o, f, lines:wrap(o.t == null || o.t === '' ? '-' : o.t, f, fs, cols[i].w - 2 * pad, opt.maxLines || 3) }; });
+      const rh = Math.max(...cells.map(c => c.lines.length)) * lh + 2 * pad - 2.4;
+      if (y - rh < BOTTOM) { newPage(false); drawHead(); }
+      if (ri % 2) page.drawRectangle({ x:M, y:y - rh, width:CW, height:rh, color:C.zebra });
+      let x = M;
+      cells.forEach((c, i) => {
+        c.lines.forEach((ln, li) => {
+          const w = tw(ln, c.f, fs), col = cols[i];
+          const xx = col.align === 'right' ? x + col.w - pad - w : col.align === 'center' ? x + (col.w - w) / 2 : x + pad;
+          text(ln, xx, y - pad - fs + 1 - li * lh, c.f, fs, c.color || C.ink);
+        });
+        x += cols[i].w;
+      });
+      page.drawLine({ start:{ x:M, y:y - rh }, end:{ x:W - M, y:y - rh }, thickness:.4, color:C.line });
+      y -= rh;
+    });
+    y -= 14;
+  }
+
+  newPage(true);
+
+  // ---- summary tiles
+  const s = statsOf(rows);
+  const tiles = [
+    [s.total, 'Total requests', C.ink], [s.completed, 'Completed', C.green], [s.onTime, 'Completed on time', C.green], [s.late, 'Completed late', s.late ? C.orange : C.ink],
+    [s.rate == null ? '-' : s.rate + '%', 'On-time rate', s.rate == null ? C.ink : s.rate >= 80 ? C.green : s.rate >= 50 ? C.amber : C.red],
+    [s.open, 'Still open', C.ink], [s.overdue, 'Open & overdue', s.overdue ? C.red : C.ink], [fmtAvg(s.avg), 'Avg time to complete', C.ink]
+  ];
+  heading('Summary');
+  const gap = 6, tW = (CW - gap * (tiles.length - 1)) / tiles.length, tH = 42;
+  tiles.forEach(([v, l, col], i) => {
+    const x = M + i * (tW + gap);
+    page.drawRectangle({ x, y:y - tH, width:tW, height:tH, color:C.tile });
+    text(String(v), x + 8, y - 20, FB, 16, col);
+    text(l, x + 8, y - 34, F, 7.2, C.muted);
+  });
+  y -= tH + 8;
+  if (s.cancelled) { text(`${s.cancelled} cancelled request${s.cancelled > 1 ? 's are' : ' is'} listed but not counted in the on-time figures.`, M, y - 8, F, 7.5, C.muted); y -= 14; }
+  y -= 8;
+
+  // ---- designer performance
+  const by = (key) => { const m = new Map(); rows.forEach(r => { const k = r[key] || ''; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return m; };
+  const rateCell = st => st.rate == null ? '-' : { t:st.rate + '%', bold:true, color: st.rate >= 80 ? C.green : st.rate >= 50 ? C.amber : C.red };
+  heading('Designer performance');
+  const dRows = [...by('AssignedTo')].sort((a, b) => (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || b[1].length - a[1].length).map(([name, list]) => {
+    const st = statsOf(list);
+    return [{ t:name || 'Not assigned', bold:!!name, color:name ? C.ink : C.red }, st.total, st.completed, st.onTime, st.late || '0',
+      st.open, st.overdue ? { t:st.overdue, bold:true, color:C.red } : '0', rateCell(st), fmtAvg(st.avg)];
+  });
+  const dCols = [{ h:'Designer', w:186 }, { h:'Jobs', w:70, align:'right' }, { h:'Completed', w:76, align:'right' }, { h:'On time', w:70, align:'right' },
+    { h:'Late', w:66, align:'right' }, { h:'Still open', w:70, align:'right' }, { h:'Overdue now', w:80, align:'right' }, { h:'On-time rate', w:80, align:'right' }, { h:'Avg time to complete', w:CW - 698, align:'right' }];
+  table(dCols, dRows);
+
+  // ---- requests by sales person
+  heading('Requests by sales person');
+  const sRows = [...by('CreatedBy')].sort((a, b) => b[1].length - a[1].length).map(([name, list]) => {
+    const st = statsOf(list), urgent = list.filter(r => r.Priority === 'Urgent' || r.Priority === 'High').length;
+    return [{ t:name || '-', bold:true }, st.total, urgent, st.completed, st.open, st.overdue ? { t:st.overdue, bold:true, color:C.red } : '0', st.cancelled, rateCell(st)];
+  });
+  table([{ h:'Sales person', w:186 }, { h:'Requests', w:80, align:'right' }, { h:'Urgent / High', w:90, align:'right' }, { h:'Completed', w:86, align:'right' },
+    { h:'Still open', w:86, align:'right' }, { h:'Overdue now', w:86, align:'right' }, { h:'Cancelled', w:86, align:'right' }, { h:'On-time rate', w:CW - 700, align:'right' }], sRows);
+
+  // ---- full job list
+  heading(`Job list (${rows.length})`);
+  const dts = v => v ? new Date(v).toLocaleString('en-GB', { day:'numeric', month:'short', year:'2-digit', hour:'numeric', minute:'2-digit', hour12:true }) : '';
+  const prioColor = { Urgent:C.red, High:C.orange, Normal:C.blue, Low:C.muted };
+  const kindColor = { ok:C.green, late:C.orange, bad:C.red, muted:C.muted };
+  const jRows = rows.map(r => {
+    const x = jobResult(r);
+    return [{ t:r.ID, bold:true }, [r.Client, r.Location].filter(Boolean).join(' - '), [r.ProjectType, r.SystemKW ? r.SystemKW + ' kW' : ''].filter(Boolean).join(', '),
+      r.Deliverables, { t:r.Priority, bold:r.Priority === 'Urgent' || r.Priority === 'High', color:prioColor[r.Priority] },
+      dts(r.Created) + (r.CreatedBy ? ' - ' + r.CreatedBy : ''), dts(r.Deadline), r.AssignedTo ? r.AssignedTo : { t:'Not assigned', color:C.red },
+      r.Status, dts(r.CompletedAt), { t:x.text, bold:x.kind === 'bad' || x.kind === 'late' || x.kind === 'ok', color:kindColor[x.kind] || C.ink }];
+  });
+  table([{ h:'ID', w:44 }, { h:'Client / location', w:142 }, { h:'Type / size', w:78 }, { h:'Outputs', w:96 }, { h:'Priority', w:44 },
+    { h:'Requested', w:84 }, { h:'Deadline', w:66 }, { h:'Designer', w:62 }, { h:'Status', w:52 }, { h:'Completed', w:62 }, { h:'Result', w:CW - 730 }], jRows, { size:7.2 });
+
+  // ---- footer on every page
+  const total = pages.length;
+  pages.forEach((p, i) => {
+    page = p;
+    p.drawLine({ start:{ x:M, y:FOOT_TOP }, end:{ x:W - M, y:FOOT_TOP }, thickness:.6, color:C.line });
+    let fy = FOOT_TOP - 6 - FS;
+    text(REPORT_FOOTER.copyright(), M, fy, FB, FS, C.muted);
+    const pg = `Page ${i + 1} of ${total}`; text(pg, W - M - tw(pg, F, FS), fy, F, FS, C.muted);
+    noticeLines.forEach(l => { fy -= FLH; text(l, M, fy, F, FS, C.muted); });
+    fy -= FLH; text(REPORT_FOOTER.company, M, fy, FB, FS, C.muted);
+  });
+
+  const bytes = await doc.save();
+  return { blob:new Blob([bytes], { type:'application/pdf' }), name:reportFileName('pdf'), pages:total, rows:rows.length };
 }
 
 async function busyBtn(btn, fn){
