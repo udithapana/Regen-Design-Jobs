@@ -118,6 +118,8 @@ function setup() {
   if (!p.getProperty('SALES_KEY')) p.setProperty('SALES_KEY', 'S-' + rnd());
   if (!p.getProperty('DESIGN_KEY')) p.setProperty('DESIGN_KEY', 'D-' + rnd());
   if (!p.getProperty('LEAD_KEY')) p.setProperty('LEAD_KEY', 'L-' + rnd());
+  ensureMgmtKey_();
+  if (!teamRows_().some(m => /^management$/i.test(m.team))) team.appendRow(['Mr Champika', 'Management', 'CTO', 'Yes', '']);
   if (!p.getProperty('NTFY_SALES')) p.setProperty('NTFY_SALES', 'regen-sales-' + rnd().toLowerCase() + rnd().toLowerCase());
   if (!p.getProperty('NTFY_DESIGN')) p.setProperty('NTFY_DESIGN', 'regen-design-' + rnd().toLowerCase() + rnd().toLowerCase());
   if (!p.getProperty('APP_URL')) p.setProperty('APP_URL', '');
@@ -138,6 +140,7 @@ function showSettings() {
   Logger.log('SALES key   : ' + p.SALES_KEY);
   Logger.log('DESIGN key  : ' + p.DESIGN_KEY);
   Logger.log('LEAD key    : ' + p.LEAD_KEY + '   (design lead only)');
+  Logger.log('MANAGEMENT key: ' + p.MGMT_KEY + '   (view all jobs and reports, comment)');
   Logger.log('ntfy topic for SALES phones : ' + p.NTFY_SALES);
   Logger.log('ntfy topic for DESIGN phones: ' + p.NTFY_DESIGN);
   Logger.log('APP_URL (link inside alerts): ' + (p.APP_URL || '(not set — Project Settings > Script properties)'));
@@ -180,6 +183,9 @@ function doPost(e) {
       case 'update':  data = withLock_(() => updateRequest_(user, body.id, body.changes || {})); break;
       case 'comment': data = withLock_(() => addComment_(user, body.id, body.text)); break;
       case 'log':     data = readLog_(body.id); break;
+      case 'teamAdmin':  data = teamAdmin_(user); break;
+      case 'teamAdd':    data = withLock_(() => teamAdd_(user, body.member || {})); break;
+      case 'teamRemove': data = withLock_(() => teamRemove_(user, body.name)); break;
       default: throw new Error('Unknown action');
     }
     return json_({ ok: true, data: data });
@@ -232,9 +238,63 @@ function auth_(a) {
     else if (key === String(p.getProperty('DESIGN_KEY')).toUpperCase()) role = 'designer';
   } else if (/^sales$/i.test(m.team)) {
     if (key === String(p.getProperty('SALES_KEY')).toUpperCase()) role = 'sales';
+  } else if (/^management$/i.test(m.team)) {
+    if (key === ensureMgmtKey_().toUpperCase()) role = 'management';
   }
   if (!role) throw new Error('Wrong team key');
   return { name: m.name, team: m.team, role: role };
+}
+
+function ensureMgmtKey_() {
+  const p = PropertiesService.getScriptProperties();
+  let k = p.getProperty('MGMT_KEY');
+  if (!k) { k = 'M-' + Utilities.getUuid().replace(/-/g, '').slice(0, 6).toUpperCase(); p.setProperty('MGMT_KEY', k); }
+  return k;
+}
+
+// ----- Team management (Design Lead only) -----
+const TEAM_TYPES = ['Sales', 'Design', 'Management'];
+function requireLead_(user) { if (user.role !== 'lead') throw new Error('Only the Design Head can manage the team'); }
+
+function teamAdmin_(user) {
+  requireLead_(user);
+  const p = PropertiesService.getScriptProperties();
+  const open = readRequests_().filter(r => WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
+  return {
+    members: teamRows_().map(m => ({ name: m.name, team: m.team, lead: m.lead, active: m.active, hasTopic: !!m.topic,
+      openJobs: open.filter(r => r.AssignedTo === m.name).length })),
+    keys: { Sales: p.getProperty('SALES_KEY'), Design: p.getProperty('DESIGN_KEY'), Management: ensureMgmtKey_() }
+  };
+}
+
+function teamAdd_(user, m) {
+  requireLead_(user);
+  const name = clean_(m.name, 60).replace(/\s+/g, ' ');
+  const team = TEAM_TYPES.find(t => t.toLowerCase() === String(m.team || '').toLowerCase());
+  if (name.length < 2) throw new Error('Enter the member\'s name');
+  if (!team) throw new Error('Choose Sales, Design or Management');
+  if (teamRows_().some(x => x.name.toLowerCase() === name.toLowerCase())) throw new Error(name + ' is already in the team list');
+  book_().getSheetByName('Team').appendRow([name, team, team === 'Management' ? 'Management' : 'Member', 'Yes', clean_(m.topic, 80)]);
+  log_('TEAM', user.name, 'Team', 'Added ' + name + ' (' + team + ')');
+  return teamAdmin_(user);
+}
+
+function teamRemove_(user, nameIn) {
+  requireLead_(user);
+  const sh = book_().getSheetByName('Team');
+  const v = sh.getDataRange().getValues();
+  const want = String(nameIn || '').trim().toLowerCase();
+  let row = -1;
+  for (let i = 1; i < v.length; i++) if (String(v[i][0] || '').trim().toLowerCase() === want) { row = i + 1; break; }
+  if (row < 0) throw new Error('Member not found');
+  const name = String(v[row - 1][0]).trim();
+  if (name.toLowerCase() === user.name.toLowerCase()) throw new Error('You cannot remove yourself');
+  if (/lead/i.test(String(v[row - 1][2] || ''))) throw new Error('The Design Head cannot be removed here');
+  const open = readRequests_().filter(r => r.AssignedTo === name && WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
+  if (open.length) throw new Error(name + ' still has ' + open.length + ' open job' + (open.length > 1 ? 's' : '') + ' (' + open.map(r => r.ID).join(', ') + '). Reassign them first.');
+  sh.deleteRow(row);
+  log_('TEAM', user.name, 'Team', 'Removed ' + name);
+  return teamAdmin_(user);
 }
 
 // ===================== REQUESTS =====================
@@ -366,6 +426,7 @@ function createRequest_(user, r) {
 const SALES_FIELDS = ['Client', 'Location', 'SystemKW', 'ProjectType', 'Deliverables', 'Priority', 'Deadline', 'SalesNotes', 'UrgentReason'];
 
 function updateRequest_(user, id, ch) {
+  if (user.role === 'management') throw new Error('Management can view and comment only');
   const sh = reqSheet_();
   const rowNo = findRow_(id);
   const cur = rowToObj_(sh.getRange(rowNo, 1, 1, REQ_HEADERS.length).getValues()[0]);
@@ -481,9 +542,9 @@ function addComment_(user, id, text) {
   const cur = rowToObj_(sh.getRange(rowNo, 1, 1, REQ_HEADERS.length).getValues()[0]);
   log_(id, user.name, 'Comment', t);
   const p = PropertiesService.getScriptProperties();
-  const toSales = user.role !== 'sales';
-  push_(toSales ? p.getProperty('NTFY_SALES') : p.getProperty('NTFY_DESIGN'),
-    user.name + ' on ' + id, cur.Client + ': ' + t, 3, ['speech_balloon']);
+  const topics = user.role === 'management' ? [p.getProperty('NTFY_SALES'), p.getProperty('NTFY_DESIGN')]
+               : [user.role === 'sales' ? p.getProperty('NTFY_DESIGN') : p.getProperty('NTFY_SALES')];
+  topics.forEach(tp => push_(tp, user.name + ' on ' + id, cur.Client + ': ' + t, user.role === 'management' ? 4 : 3, ['speech_balloon']));
   return readLog_(id);
 }
 
