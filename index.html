@@ -130,7 +130,27 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
 .rep-stats div{background:var(--grey-bg);border-radius:10px;padding:8px 4px;text-align:center}
 .rep-stats b{display:block;font-size:18px;line-height:1.2}
 .rep-stats span{font-size:11px;color:var(--muted)}
-.brand b{white-space:nowrap}
+.tm-group{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.tm-head{background:var(--grey-bg);padding:8px 12px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tm-head span{font-size:12px;color:var(--muted)}
+.tm-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line)}
+.tm-head + .tm-row{border-top:0}
+.section .tm-row{border:1px solid var(--line);border-radius:10px;margin-top:6px}
+.tm-name{flex:1;min-width:0;font-weight:600}
+.tm-name small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.tm-empty{color:var(--muted);font-size:13px}
+.tm-del{border:1px solid var(--red-bg);background:#fff;color:var(--red);border-radius:9px;padding:6px 12px;cursor:pointer;font-weight:600}
+.tm-copy{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 12px;cursor:pointer}
+.tm-key{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--grey-bg);border-radius:6px;padding:3px 8px;font-size:13px}
+.brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.brand b .ttl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.brand b .demo-tag{margin-left:0;flex:none}
+@media(max-width:480px){
+  .bar{gap:6px}
+  .icon-btn{min-width:34px;height:34px;padding:0 8px}
+  .brand{gap:8px}
+  .brand b{font-size:15px}
+}
 /* ---- desktop / tablet: every filter tab visible, aligned with the search box ---- */
 @media(min-width:760px){
   main{padding:22px 28px 120px}
@@ -185,8 +205,9 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
     <div class="bar">
       <div class="brand">
         <img src="icon-192.png" alt="" width="34" height="34" style="border-radius:9px;display:block;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.18)">
-        <div style="min-width:0"><b>Design Requests<span id="demoTag" class="demo-tag hidden">DEMO</span></b><small id="whoami"></small></div>
+        <div style="min-width:0"><b><span class="ttl">Design Requests</span><span id="demoTag" class="demo-tag hidden">DEMO</span></b><small id="whoami"></small></div>
       </div>
+      <button class="icon-btn hidden" id="teamBtn" title="Team" aria-label="Manage team"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.3.1 4 1.6 4.7 4.3"/></svg></button>
       <button class="icon-btn" id="reportBtn" title="Report" aria-label="Download report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="M9.5 14.5 12 17l2.5-2.5"/></svg></button>
       <button class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">↻</button>
       <button class="icon-btn" id="logoutBtn" title="Sign out" aria-label="Sign out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
@@ -355,9 +376,10 @@ async function loadTeam(){
 }
 function fillNames(team){
   const grp = t => team.filter(m => m.team.toLowerCase() === t);
-  const opt = m => `<option value="${esc(m.name)}">${esc(m.name)}${m.lead ? ' (Lead)' : ''}</option>`;
+  const opt = m => `<option value="${esc(m.name)}">${esc(m.name)}${m.lead ? ' (Design Head)' : ''}</option>`;
   $('#nameSel').innerHTML = '<option value="">Select your name</option>' +
-    `<optgroup label="Sales">${grp('sales').map(opt).join('')}</optgroup><optgroup label="Design">${grp('design').map(opt).join('')}</optgroup>`;
+    `<optgroup label="Sales">${grp('sales').map(opt).join('')}</optgroup><optgroup label="Design">${grp('design').map(opt).join('')}</optgroup>` +
+    (grp('management').length ? `<optgroup label="Management">${grp('management').map(opt).join('')}</optgroup>` : '');
   const last = store.get().lastName; if (last) $('#nameSel').value = last;
 }
 
@@ -383,13 +405,15 @@ $('#demoBtn').onclick = () => pickDemoUser();
 $('#logoutBtn').onclick = () => { store.set({ user:null, key:'', demo:false }); S.user = null; S.key = ''; S.demo = false; S.requests = []; showLogin(); };
 $('#refreshBtn').onclick = () => refresh(true);
 $('#reportBtn').onclick = () => openReport();
+$('#teamBtn').onclick = () => openTeam();
 
 function showApp(){
   $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
-  const roleName = { sales:'Sales', lead:'Design Lead', designer:'Designer' }[S.user.role];
+  const roleName = { sales:'Sales', lead:'Design Head', designer:'Designer', management:'Management' }[S.user.role];
   $('#whoami').textContent = `${S.user.name} · ${roleName}`;
   $('#demoTag').classList.toggle('hidden', !S.demo);
   $('#newBtn').classList.toggle('hidden', !(S.user.role === 'sales' || S.user.role === 'lead'));
+  $('#teamBtn').classList.toggle('hidden', S.user.role !== 'lead');
   S.filter = S.user.role === 'designer' ? 'mine' : 'active';
   renderChips();
 }
@@ -422,7 +446,8 @@ const FILTERS = {
   all:      { label:'All',         fn: () => true }
 };
 function renderChips(){
-  const keys = S.user.role === 'lead' ? ['active','mine','unassigned','review','info','done','all']
+  const keys = S.user.role === 'management' ? ['active','unassigned','review','info','done','all']
+            : S.user.role === 'lead' ? ['active','mine','unassigned','review','info','done','all']
             : S.user.role === 'sales' ? ['active','mine','info','done','all'] : ['mine','active','info','done','all'];
   $('#chips').innerHTML = keys.map(k => `<button class="chip ${S.filter === k ? 'on' : ''}" data-f="${k}">${FILTERS[k].label}</button>`).join('');
   $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.filter = b.dataset.f; S.quick = ''; renderChips(); render(); });
@@ -627,16 +652,17 @@ async function openDetail(id){
       <textarea id="f-DesignNotes" ${isLead || isAssignee ? '' : 'disabled'} placeholder="Progress, questions for sales, file location…">${esc(r.DesignNotes)}</textarea>
       ${r.AssignedAt ? `<div class="lock">Assigned ${esc(fmtDate(r.AssignedAt))}${r.CompletedAt ? ' · completed ' + esc(fmtDate(r.CompletedAt)) : ''}</div>` : ''}
     </div>
-    <div class="actions"><button class="btn alt" onclick="closeModal()">Close</button><button class="btn" id="saveBtn">Save changes</button></div>
+    <div class="actions"><button class="btn alt" onclick="closeModal()">Close</button>${role === 'management' ? '' : '<button class="btn" id="saveBtn">Save changes</button>'}</div>
+    ${role === 'management' ? '<div class="lock">👁 Management view — you can read everything and add comments.</div>' : ''}
 
     <div class="section"><h3>Activity &amp; comments</h3>
-      <div class="comment"><input type="text" id="cmt" placeholder="Write a comment (other team gets a push)…" maxlength="1000"><button class="btn" id="cmtBtn">Send</button></div>
+      <div class="comment"><input type="text" id="cmt" placeholder="${role === 'management' ? 'Write a comment (Sales and Design get a push)…' : 'Write a comment (other team gets a push)…'}" maxlength="1000"><button class="btn" id="cmtBtn">Send</button></div>
       <ul class="log" id="log"><li><span class="spin"></span></li></ul>
     </div>`);
   const dueOpts = { isNew:false, excludeId:r.ID, origDeadline:r.Deadline, origPriority:r.Priority };
   if (isSales) wireDueRules(dueOpts);
 
-  $('#saveBtn').onclick = async (e) => {
+  if ($('#saveBtn')) $('#saveBtn').onclick = async (e) => {
     const changes = {};
     if (isSales) {
       const f = readRequestFields();
@@ -1018,6 +1044,57 @@ async function buildReportPdf(){
   return { blob:new Blob([bytes], { type:'application/pdf' }), name:reportFileName('pdf'), pages:total, rows:rows.length };
 }
 
+/* =========================================================
+   TEAM — Design Head adds / removes members
+   ========================================================= */
+async function openTeam(){
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>Team</h2><div class="sub">Add or remove people who can sign in. Removed people can no longer sign in; their past jobs stay in the records.</div>
+    <div id="teamBody"><span class="spin"></span></div>`);
+  try { drawTeam(await api('teamAdmin')); } catch(e){ $('#teamBody').innerHTML = `<p class="lock">${esc(e.message)}</p>`; }
+}
+function drawTeam(d){
+  if (!$('#teamBody')) return;
+  const groups = ['Design', 'Sales', 'Management'];
+  const keyNote = { Sales:'Sales key', Design:'Design key', Management:'Management key' };
+  const can = { Design:'Takes design jobs, updates status and notes', Sales:'Adds requests, sets priority and deadline', Management:'Sees all jobs and reports, can comment' };
+  $('#teamBody').innerHTML = groups.map(g => {
+    const list = d.members.filter(m => m.team.toLowerCase() === g.toLowerCase());
+    return `<div class="tm-group"><div class="tm-head"><b>${g}</b><span>${can[g]}</span></div>
+      ${list.length ? list.map(m => `<div class="tm-row">
+        <div class="tm-name">${esc(m.name)}${m.lead ? ' <span class="pill">Design Head</span>' : ''}${m.active ? '' : ' <span class="pill">Inactive</span>'}
+          ${m.openJobs ? `<small>${m.openJobs} open job${m.openJobs > 1 ? 's' : ''}</small>` : ''}</div>
+        ${m.lead || m.name.toLowerCase() === S.user.name.toLowerCase() ? '' : `<button class="tm-del" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">Remove</button>`}
+      </div>`).join('') : '<div class="tm-row tm-empty">No one yet</div>'}</div>`;
+  }).join('') + `
+    <div class="section"><h3>Add a member</h3>
+      <div class="grid2">
+        <div><label for="tm-name">Name (as it should appear)</label><input id="tm-name" type="text" maxlength="60" placeholder="e.g. Sachini"></div>
+        <div><label for="tm-team">Team</label><select id="tm-team"><option>Design</option><option>Sales</option><option>Management</option></select></div>
+      </div>
+      <div class="actions"><button class="btn accent" id="tm-add">Add member</button></div>
+    </div>
+    <div class="section"><h3>Team keys to share</h3>
+      <div class="lock" style="margin-bottom:6px">New members sign in with their name and their team's key. Share it privately (e.g. WhatsApp to that person only).</div>
+      ${groups.map(g => `<div class="tm-row"><div class="tm-name">${keyNote[g]}</div><code class="tm-key">${esc(d.keys[g] || '')}</code><button class="tm-copy" data-key="${esc(d.keys[g] || '')}">Copy</button></div>`).join('')}
+    </div>`;
+  $('#tm-add').onclick = e => busyBtn(e.currentTarget, async () => {
+    const name = $('#tm-name').value.trim(), team = $('#tm-team').value;
+    if (name.length < 2) throw new Error('Enter the member\'s name');
+    const res = await api('teamAdd', { member:{ name, team } });
+    drawTeam(res); toast(`${name} added to ${team}`); await refresh(false);
+  });
+  $('#tm-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('#tm-add').click(); });
+  document.querySelectorAll('#teamBody .tm-del').forEach(b => b.onclick = () => {
+    const name = b.dataset.name;
+    if (!confirm(`Remove ${name} from the team? They will no longer be able to sign in.`)) return;
+    busyBtn(b, async () => { const res = await api('teamRemove', { name }); drawTeam(res); toast(`${name} removed`); await refresh(false); });
+  });
+  document.querySelectorAll('#teamBody .tm-copy').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.key); toast('Key copied'); } catch(e){ toast('Copy failed — select the key and copy it', true); }
+  });
+}
+
 async function busyBtn(btn, fn){
   const t = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
   try { await fn(); } catch(e){ toast(e.message, true); } finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = t; } }
@@ -1032,8 +1109,11 @@ const Demo = (() => {
   const K = 'regen-drt-demo';
   const team = [
     { name:'Uditha', team:'Design', lead:true }, { name:'Nimal', team:'Design', lead:false }, { name:'Sachini', team:'Design', lead:false },
-    { name:'Kavish', team:'Sales', lead:false }, { name:'Dilan', team:'Sales', lead:false }
+    { name:'Kavish', team:'Sales', lead:false }, { name:'Dilan', team:'Sales', lead:false },
+    { name:'Mr Champika', team:'Management', lead:false }
   ];
+  const teamAdmin = d => ({ members:team.map(m => ({ ...m, active:true, openJobs:d.req.filter(r => r.AssignedTo === m.name && WORKLOAD_STATUSES.includes(r.Status)).length })),
+    keys:{ Sales:'S-DEMO01', Design:'D-DEMO02', Management:'M-DEMO03' } });
   const H = 36e5, now = () => new Date().toISOString();
   function seed(){
     const t = Date.now(), at = h => new Date(t + h * H).toISOString();
@@ -1071,6 +1151,16 @@ const Demo = (() => {
       });
       r.UpdatedAt = now(); r.UpdatedBy = user.name; lg(r.ID, 'Updated', notes.join('; ')); out = r;
     } else if (action === 'login') out = user;
+    else if (action === 'teamAdmin') out = teamAdmin(d);
+    else if (action === 'teamAdd') {
+      const n = data.member.name.trim();
+      if (team.some(m => m.name.toLowerCase() === n.toLowerCase())) return Promise.reject(new Error(n + ' is already in the team list'));
+      team.push({ name:n, team:data.member.team, lead:false }); out = teamAdmin(d);
+    } else if (action === 'teamRemove') {
+      const i = team.findIndex(m => m.name === data.name), open = d.req.filter(r => r.AssignedTo === data.name && WORKLOAD_STATUSES.includes(r.Status));
+      if (open.length) return Promise.reject(new Error(data.name + ' still has ' + open.length + ' open job' + (open.length > 1 ? 's' : '') + ' (' + open.map(r => r.ID).join(', ') + '). Reassign them first.'));
+      if (i >= 0) team.splice(i, 1); out = teamAdmin(d);
+    }
     save(d);
     return new Promise(res => setTimeout(() => res(JSON.parse(JSON.stringify(out))), 150));
   }
@@ -1081,14 +1171,15 @@ function pickDemoUser(){
   openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
     <h2>Try the demo</h2><div class="sub">Sample data, saved only on this device. Pick who you want to be:</div>
     <div class="actions" style="flex-direction:column">
-      <button class="btn" data-u="Uditha|lead">Uditha — Design Lead (assigns jobs)</button>
+      <button class="btn" data-u="Uditha|lead">Uditha — Design Head (assigns jobs, manages team)</button>
       <button class="btn alt" data-u="Nimal|designer">Nimal — Designer</button>
       <button class="btn alt" data-u="Kavish|sales">Kavish — Sales (adds requests)</button>
+      <button class="btn alt" data-u="Mr Champika|management">Mr Champika — Management (view &amp; comment)</button>
     </div>
     <p style="margin-top:14px"><button class="link" id="resetDemo">Reset demo data</button></p>`);
   $('#sheet').querySelectorAll('[data-u]').forEach(b => b.onclick = () => {
     const [name, role] = b.dataset.u.split('|');
-    closeModal(); startDemo({ name, role, team: role === 'sales' ? 'Sales' : 'Design' });
+    closeModal(); startDemo({ name, role, team: role === 'sales' ? 'Sales' : role === 'management' ? 'Management' : 'Design' });
   });
   $('#resetDemo').onclick = () => { Demo.reset(); toast('Demo data reset'); };
 }
