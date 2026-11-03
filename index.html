@@ -180,6 +180,10 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
   body.has-side .fab{right:max(28px,calc((100vw - 1360px)/2 + 28px))}
 }
 @media(min-width:1280px){ body.has-side .list{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.icon-btn.bell{position:relative}
+.icon-btn.bell.on{color:#ffd27a}
+.bell-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--navy)}
+@media(max-width:420px){ #refreshBtn{display:none} }
 .brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
 .brand b .ttl{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .brand b .demo-tag{margin-left:0;flex:none}
@@ -245,6 +249,7 @@ input:disabled,select:disabled,textarea:disabled{background:var(--grey-bg);color
         <img src="icon-192.png" alt="" width="34" height="34" style="border-radius:9px;display:block;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.18)">
         <div style="min-width:0"><b><span class="ttl">Design Requests</span><span id="demoTag" class="demo-tag hidden">DEMO</span></b><small id="whoami"></small></div>
       </div>
+      <button class="icon-btn bell" id="bellBtn" title="Notifications" aria-label="Notifications"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i class="bell-dot hidden" id="bellDot"></i></button>
       <button class="icon-btn hidden" id="teamBtn" title="Team" aria-label="Manage team"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.3.1 4 1.6 4.7 4.3"/></svg></button>
       <button class="icon-btn" id="reportBtn" title="Report" aria-label="Download report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="M9.5 14.5 12 17l2.5-2.5"/></svg></button>
       <button class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">↻</button>
@@ -450,6 +455,7 @@ $('#logoutBtn').onclick = () => { store.set({ user:null, key:'', demo:false }); 
 $('#refreshBtn').onclick = () => refresh(true);
 $('#reportBtn').onclick = () => openReport();
 $('#teamBtn').onclick = () => openTeam();
+$('#bellBtn').onclick = () => openNotify();
 
 function showApp(){
   $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
@@ -461,6 +467,7 @@ function showApp(){
   S.filter = S.user.role === 'designer' ? 'mine' : 'active';
   S.designer = '';
   renderChips();
+  initPush();
 }
 
 /* ---------------- data ---------------- */
@@ -471,13 +478,14 @@ async function refresh(manual){
     const d = await api('list');
     S.requests = d.requests; S.team = d.team; setHolidays(d.holidays);
     render();
+    openFromHash();
   } catch(e){
     if (/team key|not found in the team/i.test(e.message)) { toast(e.message + ' — please sign in again', true); $('#logoutBtn').click(); }
     else if (manual) toast(e.message, true);
   } finally { S.busy = false; $('#refreshBtn').textContent = '↻'; }
 }
 setInterval(() => { if (S.user && document.visibilityState === 'visible') refresh(false); }, 60000);
-document.addEventListener('visibilitychange', () => { if (S.user && document.visibilityState === 'visible') refresh(false); });
+document.addEventListener('visibilitychange', () => { if (S.user && document.visibilityState === 'visible') { refresh(false); clearShownNotifications(); } });
 setInterval(() => { if (S.user) render(); }, 60000); // keep "due in" times fresh
 
 /* ---------------- list view ---------------- */
@@ -1154,12 +1162,12 @@ function drawTeam(d){
   const groups = ['Design', 'Sales', 'Management'];
   const keyNote = { Sales:'Sales key', Design:'Design key', Management:'Management key' };
   const can = { Design:'Takes design jobs, updates status and notes', Sales:'Adds requests, sets priority and deadline', Management:'Sees all jobs and reports, can comment' };
-  $('#teamBody').innerHTML = groups.map(g => {
+  $('#teamBody').innerHTML = (d.pushReady === false ? '<div class="banner soon" style="font-weight:500">🔕 App notifications are not set up yet — see “Phone notifications” in the setup guide (Firebase, about 10 minutes).</div>' : '') + groups.map(g => {
     const list = d.members.filter(m => m.team.toLowerCase() === g.toLowerCase());
     return `<div class="tm-group"><div class="tm-head"><b>${g}</b><span>${can[g]}</span></div>
       ${list.length ? list.map(m => `<div class="tm-row">
         <div class="tm-name">${esc(m.name)}${m.lead ? ' <span class="pill">Design Head</span>' : ''}${m.active ? '' : ' <span class="pill">Inactive</span>'}
-          ${m.openJobs ? `<small>${m.openJobs} open job${m.openJobs > 1 ? 's' : ''}</small>` : ''}</div>
+          <small>${m.openJobs ? m.openJobs + ' open job' + (m.openJobs > 1 ? 's' : '') + ' · ' : ''}${d.pushReady ? (m.devices ? '🔔 notifications on' : '🔕 notifications off') : ''}</small></div>
         ${m.lead || m.name.toLowerCase() === S.user.name.toLowerCase() ? '' : `<button class="tm-del" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">Remove</button>`}
       </div>`).join('') : '<div class="tm-row tm-empty">No one yet</div>'}</div>`;
   }).join('') + `
@@ -1190,6 +1198,117 @@ function drawTeam(d){
     try { await navigator.clipboard.writeText(b.dataset.key); toast('Key copied'); } catch(e){ toast('Copy failed — select the key and copy it', true); }
   });
 }
+
+/* =========================================================
+   PHONE NOTIFICATIONS — Firebase Cloud Messaging + app icon badge
+   ========================================================= */
+const FB_VER = '10.12.2';
+const PUSH = { cfg:null, token:'', state:'unknown' };   // state: unsupported | blocked | off | on | unready | demo
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function loadScript(src){
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src.split('/').pop() + ' — check your internet connection')); document.head.appendChild(s); });
+}
+let fbP;
+async function fbMessaging(){
+  if (!fbP) fbP = (async () => {
+    await loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app-compat.js`);
+    await loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-messaging-compat.js`);
+    if (!(await firebase.messaging.isSupported())) throw new Error('This browser cannot receive app notifications');
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(PUSH.cfg.config);
+    return firebase.messaging(app);
+  })().catch(e => { fbP = null; throw e; });
+  return fbP;
+}
+async function pushToken(){
+  const reg = await navigator.serviceWorker.register('sw.js', { scope:'./' });
+  await navigator.serviceWorker.ready;
+  const m = await fbMessaging();
+  const t = await m.getToken({ vapidKey:PUSH.cfg.vapid, serviceWorkerRegistration:reg });
+  if (!t) throw new Error('No notification token from Google');
+  return t;
+}
+function setBell(){ $('#bellDot').classList.toggle('hidden', PUSH.state === 'on' || PUSH.state === 'unknown' || PUSH.state === 'demo' || PUSH.state === 'unsupported'); $('#bellBtn').classList.toggle('on', PUSH.state === 'on'); }
+async function initPush(){
+  PUSH.state = 'unknown';
+  if (S.demo) { PUSH.state = 'demo'; return setBell(); }
+  if (!pushSupported()) { PUSH.state = 'unsupported'; return setBell(); }
+  try { PUSH.cfg = await api('pushConfig'); } catch (e) { return; }
+  if (!PUSH.cfg.ready) { PUSH.state = 'unready'; return setBell(); }
+  if (Notification.permission === 'denied') { PUSH.state = 'blocked'; return setBell(); }
+  if (Notification.permission !== 'granted') { PUSH.state = 'off'; return setBell(); }
+  // already allowed: keep this phone's token fresh on the server
+  try {
+    const t = await pushToken(), saved = store.get().pushToken;
+    if (t !== saved || !PUSH.cfg.devices) { await api('pushRegister', { token:t, device:deviceName() }); store.set({ pushToken:t }); }
+    PUSH.token = t; PUSH.state = 'on';
+  } catch (e) { PUSH.state = 'off'; }
+  setBell(); clearShownNotifications();
+}
+function deviceName(){
+  const ua = navigator.userAgent;
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'Device';
+  return os + (isStandalone() ? ' · installed app' : ' · browser') + ' · ' + new Date().toLocaleDateString('en-GB');
+}
+async function clearShownNotifications(){
+  try { const reg = await navigator.serviceWorker.getRegistration('./'); if (reg) (await reg.getNotifications()).forEach(n => n.close()); } catch (e) {}
+  try { if (navigator.clearAppBadge) await navigator.clearAppBadge(); } catch (e) {}
+}
+function openNotify(){
+  const st = PUSH.state;
+  const who = { sales:'when design needs info from you, when your design is ready, comments on your requests, deadline reminders and the morning summary',
+    designer:'when a job is assigned to you, deadline or priority changes on your jobs, comments, deadline reminders and the morning summary',
+    lead:'new requests, jobs ready for review, comments, deadline reminders and the morning summary',
+    management:'Very Urgent requests, comments on jobs and the morning summary' }[S.user.role];
+  const msg = {
+    on:`<div class="banner" style="background:var(--green-bg);color:var(--green)">🔔 Notifications are <b>on</b> for this ${isStandalone() ? 'app' : 'browser'}.</div>`,
+    off:`<div class="banner soon">🔕 Notifications are <b>off</b> on this phone.</div>`,
+    blocked:`<div class="banner overdue">🔕 Notifications are <b>blocked</b> for this site.</div><p class="lock">Allow them: Chrome ⋮ → Settings → Site settings → Notifications → udithapana.github.io → Allow. Then open this again.</p>`,
+    unready:`<div class="banner soon">App notifications aren't set up on the server yet.</div><p class="lock">${S.user.role === 'lead' ? 'Follow “Phone notifications” in the setup guide (Firebase, about 10 minutes).' : 'Ask the Design Head to finish the notification setup.'}</p>`,
+    unsupported:`<div class="banner soon">This browser can't receive app notifications.</div><p class="lock">Use Chrome on Android, or on iPhone add the app to the Home Screen first (iOS 16.4 or newer).</p>`,
+    demo:`<div class="banner soon">Notifications are not available in the demo.</div>`,
+    unknown:`<div class="banner soon">Checking…</div>`
+  }[st];
+  openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
+    <h2>Phone notifications</h2><div class="sub">Like other apps: a pop-up on your phone and a badge on the Design Jobs icon until you open it.</div>
+    ${msg}
+    <p style="font-size:14px;margin:12px 0 4px">You'll be notified about ${who}.</p>
+    ${!isStandalone() && st !== 'unsupported' && st !== 'demo' ? '<p class="lock">Tip: install the app (Chrome ⋮ → Install app) so notifications and the icon badge show as “Design Jobs”.</p>' : ''}
+    <div class="actions">
+      ${st === 'off' ? '<button class="btn accent" id="pushOn">Turn on notifications</button>' : ''}
+      ${st === 'on' ? '<button class="btn" id="pushTest">Send me a test</button><button class="btn alt" id="pushOff">Turn off on this phone</button>' : ''}
+    </div>`);
+  if ($('#pushOn')) $('#pushOn').onclick = e => busyBtn(e.currentTarget, async () => {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { PUSH.state = perm === 'denied' ? 'blocked' : 'off'; setBell(); openNotify(); return; }
+    const t = await pushToken();
+    await api('pushRegister', { token:t, device:deviceName() }); store.set({ pushToken:t });
+    PUSH.token = t; PUSH.state = 'on'; setBell(); openNotify(); toast('Notifications turned on');
+  });
+  if ($('#pushTest')) $('#pushTest').onclick = e => busyBtn(e.currentTarget, async () => {
+    await api('pushTest'); toast('Test sent — close the app to see it with the icon badge');
+  });
+  if ($('#pushOff')) $('#pushOff').onclick = e => busyBtn(e.currentTarget, async () => {
+    const t = PUSH.token || store.get().pushToken;
+    if (t) await api('pushUnregister', { token:t });
+    try { (await fbMessaging()).deleteToken(); } catch (err) {}
+    store.set({ pushToken:'' }); PUSH.token = ''; PUSH.state = 'off'; setBell(); openNotify(); toast('Notifications turned off on this phone');
+  });
+}
+// open a job from a notification link (#job=DR-0001)
+function openFromHash(){
+  const m = location.hash.match(/job=([\w-]+)/);
+  if (!m || !S.user) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const id = decodeURIComponent(m[1]);
+  if (S.requests.some(r => r.ID === id)) openDetail(id);
+}
+window.addEventListener('hashchange', openFromHash);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => {
+  const d = e.data || {};
+  if (d.type === 'refresh' && S.user) refresh(false);
+  if (d.type === 'open' && d.url) { const h = new URL(d.url, location.href).hash; if (h) { location.hash = h; } }
+});
 
 async function busyBtn(btn, fn){
   const t = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
@@ -1248,6 +1367,7 @@ const Demo = (() => {
       r.UpdatedAt = now(); r.UpdatedBy = user.name; lg(r.ID, 'Updated', notes.join('; ')); out = r;
     } else if (action === 'login') out = user;
     else if (action === 'teamAdmin') out = teamAdmin(d);
+    else if (action === 'pushConfig') out = { ready:false };
     else if (action === 'teamAdd') {
       const n = data.member.name.trim();
       if (team.some(m => m.name.toLowerCase() === n.toLowerCase())) return Promise.reject(new Error(n + ' is already in the team list'));

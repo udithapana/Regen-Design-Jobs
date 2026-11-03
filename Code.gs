@@ -186,6 +186,10 @@ function doPost(e) {
       case 'teamAdmin':  data = teamAdmin_(user); break;
       case 'teamAdd':    data = withLock_(() => teamAdd_(user, body.member || {})); break;
       case 'teamRemove': data = withLock_(() => teamRemove_(user, body.name)); break;
+      case 'pushConfig':     data = pushConfig_(user); break;
+      case 'pushRegister':   data = withLock_(() => pushRegister_(user, body.token, body.device)); break;
+      case 'pushUnregister': data = withLock_(() => pushUnregister_(user, body.token)); break;
+      case 'pushTest':       data = pushTest_(user); break;
       default: throw new Error('Unknown action');
     }
     return json_({ ok: true, data: data });
@@ -260,9 +264,12 @@ function teamAdmin_(user) {
   requireLead_(user);
   const p = PropertiesService.getScriptProperties();
   const open = readRequests_().filter(r => WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
+  const devs = deviceRows_();
   return {
+    pushReady: pushReady_(),
     members: teamRows_().map(m => ({ name: m.name, team: m.team, lead: m.lead, active: m.active, hasTopic: !!m.topic,
-      openJobs: open.filter(r => r.AssignedTo === m.name).length })),
+      openJobs: open.filter(r => r.AssignedTo === m.name).length,
+      devices: devs.filter(d => d.name.toLowerCase() === m.name.toLowerCase()).length })),
     keys: { Sales: p.getProperty('SALES_KEY'), Design: p.getProperty('DESIGN_KEY'), Management: ensureMgmtKey_() }
   };
 }
@@ -420,6 +427,10 @@ function createRequest_(user, r) {
     'New design request ' + id + (TOP_PRIORITY(priority) ? ' — ' + priority.toUpperCase() : ''),
     client + (row.Deliverables ? ' · ' + row.Deliverables : '') + '\nDue ' + fmt_(deadline) + ' · from ' + user.name + (reason ? '\nReason: ' + reason : ''),
     TOP_PRIORITY(priority) ? 5 : 3, [priority === 'Very Urgent' ? 'rotating_light' : 'inbox_tray']);
+  appPush_(['role:design'].concat(priority === 'Very Urgent' ? ['role:management'] : []),
+    (priority === 'Very Urgent' ? '⚡ VERY URGENT — ' : TOP_PRIORITY(priority) ? 'URGENT — ' : 'New request — ') + client,
+    id + (row.Deliverables ? ' · ' + row.Deliverables : '') + '\nDue ' + fmt_(deadline) + ' · from ' + user.name + (reason ? '\nReason: ' + reason : ''),
+    { id: id, prio: TOP_PRIORITY(priority) ? 5 : 3, exclude: user.name });
   return rowToObj_(REQ_HEADERS.map(h => row[h]));
 }
 
@@ -485,6 +496,9 @@ function updateRequest_(user, id, ch) {
         (m.topic ? '' : to + ': ') + 'New job assigned — ' + id,
         next.Client + (next.Deliverables ? ' · ' + next.Deliverables : '') + '\n' + next.Priority + ' · due ' + fmt_(new Date(next.Deadline)),
         TOP_PRIORITY(next.Priority) ? 5 : 4, ['pencil2']);
+      appPush_([to], 'New job for you — ' + next.Client,
+        id + ' · ' + next.Priority + ' · due ' + fmt_(new Date(next.Deadline)) + (next.Deliverables ? '\n' + next.Deliverables : ''),
+        { id: id, prio: TOP_PRIORITY(next.Priority) ? 5 : 4, exclude: user.name });
     } else {
       next.AssignedTo = ''; next.AssignedAt = '';
       if (cur.Status === 'Assigned') next.Status = 'New';
@@ -530,6 +544,8 @@ function updateRequest_(user, id, ch) {
   notes.forEach(n => {
     const topic = n[0] === 'sales' ? p.getProperty('NTFY_SALES') : n[0] === 'lead' ? leadTopic_() : p.getProperty('NTFY_DESIGN');
     push_(topic, n[1], n[2], n[3], n[4]);
+    const who = n[0] === 'sales' ? [next.CreatedBy] : n[0] === 'lead' ? ['role:lead'] : (next.AssignedTo ? [next.AssignedTo, 'role:lead'] : ['role:design']);
+    appPush_(who, n[1], n[2], { id: id, prio: n[3], exclude: user.name });
   });
   return next;
 }
@@ -545,6 +561,11 @@ function addComment_(user, id, text) {
   const topics = user.role === 'management' ? [p.getProperty('NTFY_SALES'), p.getProperty('NTFY_DESIGN')]
                : [user.role === 'sales' ? p.getProperty('NTFY_DESIGN') : p.getProperty('NTFY_SALES')];
   topics.forEach(tp => push_(tp, user.name + ' on ' + id, cur.Client + ': ' + t, user.role === 'management' ? 4 : 3, ['speech_balloon']));
+  const designSide = cur.AssignedTo ? [cur.AssignedTo, 'role:lead'] : ['role:lead'];
+  const who = user.role === 'management' ? [cur.CreatedBy].concat(designSide)
+            : user.role === 'sales' ? designSide
+            : [cur.CreatedBy].concat(user.role === 'designer' ? ['role:lead'] : []);
+  appPush_(who, '💬 ' + user.name + ' — ' + cur.Client, id + ': ' + t, { id: id, prio: user.role === 'management' ? 4 : 3, exclude: user.name, tag: 'c-' + id });
   return readLog_(id);
 }
 
@@ -607,6 +628,8 @@ function checkDeadlines() {
     push_(p.getProperty('NTFY_DESIGN'), title, msg, prio, [tag]);
     const m = team.find(x => x.name === r.AssignedTo && x.topic);
     if (m) push_(m.topic, title, msg, prio, [tag]);
+    appPush_([r.CreatedBy, 'role:lead'].concat(r.AssignedTo ? [r.AssignedTo] : []),
+      (stage === 'overdue' ? '🔴 ' : stage === 'urgent' ? '🟠 ' : '🟡 ') + title, msg, { id: r.ID, prio: prio, tag: 'd-' + r.ID });
 
     sh.getRange(i + 1, col).setValue(stage + (stage === 'overdue' ? '@' + today : ''));
   }
@@ -635,6 +658,149 @@ function morningSummary() {
   const title = 'Design jobs — ' + Utilities.formatDate(now, CFG.TZ, 'EEE d MMM');
   push_(p.getProperty('NTFY_SALES'), title, lines.join('\n'), 3, ['sunrise']);
   push_(p.getProperty('NTFY_DESIGN'), title, lines.join('\n'), 3, ['sunrise']);
+  appPush_(['role:all'], '☀ ' + title, lines.join('\n'), { prio: 3, tag: 'summary' });
+}
+
+// ===================== APP NOTIFICATIONS (Firebase Cloud Messaging) =====================
+// Script properties (Project Settings > Script properties):
+//   FCM_CONFIG           the firebaseConfig object from Firebase (apiKey, projectId, messagingSenderId, appId)
+//   FCM_VAPID            Cloud Messaging > Web Push certificates > Key pair (public key)
+//   FCM_SERVICE_ACCOUNT  the whole JSON file from Service accounts > Generate new private key
+const DEVICE_HEADERS = ['Name', 'Token', 'Updated', 'Device'];
+const MAX_DEVICES_PER_PERSON = 6;
+
+function pushReady_() {
+  const p = PropertiesService.getScriptProperties();
+  return !!(p.getProperty('FCM_CONFIG') && p.getProperty('FCM_VAPID') && p.getProperty('FCM_SERVICE_ACCOUNT'));
+}
+function fcmWebConfig_() {
+  const raw = String(PropertiesService.getScriptProperties().getProperty('FCM_CONFIG') || '');
+  let o = {};
+  try { o = JSON.parse(raw); } catch (e) { raw.replace(/(\w+)\s*:\s*["']([^"']+)["']/g, (m, k, v) => { o[k] = v; return m; }); }
+  return { apiKey: o.apiKey, authDomain: o.authDomain, projectId: o.projectId, messagingSenderId: o.messagingSenderId, appId: o.appId };
+}
+function deviceSheet_() {
+  const ss = book_();
+  return ss.getSheetByName('Devices') || ensureSheet_(ss, 'Devices', DEVICE_HEADERS);
+}
+function deviceRows_() {
+  const sh = book_().getSheetByName('Devices');
+  if (!sh) return [];
+  const v = sh.getDataRange().getValues(), out = [];
+  for (let i = 1; i < v.length; i++) if (v[i][1]) out.push({ row: i + 1, name: String(v[i][0] || '').trim(), token: String(v[i][1]), updated: v[i][2], device: String(v[i][3] || '') });
+  return out;
+}
+function pushConfig_(user) {
+  const ready = pushReady_();
+  return { ready: ready, config: ready ? fcmWebConfig_() : null,
+    vapid: ready ? String(PropertiesService.getScriptProperties().getProperty('FCM_VAPID')).trim() : null,
+    devices: deviceRows_().filter(d => d.name.toLowerCase() === user.name.toLowerCase()).length };
+}
+function pushRegister_(user, token, device) {
+  token = String(token || '').trim();
+  if (token.length < 20 || token.length > 4096) throw new Error('Invalid notification token');
+  const sh = deviceSheet_(), rows = deviceRows_(), now = new Date(), dev = clean_(device, 120);
+  const hit = rows.find(d => d.token === token);
+  if (hit) sh.getRange(hit.row, 1, 1, 4).setValues([[user.name, token, now, dev]]);
+  else sh.appendRow([user.name, token, now, dev]);
+  // keep only the newest few devices per person
+  const mine = deviceRows_().filter(d => d.name.toLowerCase() === user.name.toLowerCase())
+    .sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  mine.slice(MAX_DEVICES_PER_PERSON).map(d => d.row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+  return pushConfig_(user);
+}
+function pushUnregister_(user, token) {
+  removeTokens_([String(token || '')]);
+  return pushConfig_(user);
+}
+function pushTest_(user) {
+  if (!pushReady_()) throw new Error('Notifications are not set up on the server yet');
+  const sent = appPush_([user.name], 'Test notification ✅', 'Design Requests notifications are working on this phone.', { prio: 4, tag: 'test' });
+  if (!sent) throw new Error('No device received it — turn notifications on again on this phone');
+  return { sent: sent };
+}
+function removeTokens_(tokens) {
+  const sh = book_().getSheetByName('Devices');
+  if (!sh || !tokens.length) return;
+  deviceRows_().filter(d => tokens.indexOf(d.token) >= 0).map(d => d.row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+}
+/** who: names and/or 'role:sales' | 'role:design' (Design Head + designers) | 'role:lead' | 'role:management' | 'role:all' */
+function targetNames_(who, exclude) {
+  const team = teamRows_().filter(m => m.active), out = {};
+  (who || []).forEach(w => {
+    if (!w) return;
+    const s = String(w);
+    if (s.indexOf('role:') === 0) {
+      const r = s.slice(5);
+      team.forEach(m => {
+        const t = m.team.toLowerCase();
+        if (r === 'all' || (r === 'sales' && t === 'sales') || (r === 'management' && t === 'management') ||
+            (r === 'design' && t === 'design') || (r === 'lead' && t === 'design' && m.lead)) out[m.name.toLowerCase()] = 1;
+      });
+    } else if (team.some(m => m.name.toLowerCase() === s.toLowerCase())) out[s.toLowerCase()] = 1;
+  });
+  if (exclude) delete out[String(exclude).toLowerCase()];
+  return Object.keys(out);
+}
+/** Sends a phone notification from the app to the given people. Never throws; returns how many devices accepted it. */
+function appPush_(who, title, body, o) {
+  o = o || {};
+  try {
+    if (!pushReady_()) return 0;
+    const names = targetNames_(who, o.exclude);
+    if (!names.length) return 0;
+    const devs = deviceRows_().filter(d => names.indexOf(d.name.toLowerCase()) >= 0);
+    if (!devs.length) return 0;
+    return fcmSend_(devs, { title: title, body: body, id: o.id || '', prio: o.prio || 3, tag: o.tag || (o.id || '') });
+  } catch (e) { console.warn('app push failed: ' + e); return 0; }
+}
+function appLink_(id) {
+  const base = String(PropertiesService.getScriptProperties().getProperty('APP_URL') || './').trim() || './';
+  return base + (id ? '#job=' + encodeURIComponent(id) : '');
+}
+function fcmSend_(devs, d) {
+  const sa = JSON.parse(PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT'));
+  const at = fcmAccessToken_(sa);
+  const url = 'https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send';
+  const data = { title: String(d.title).slice(0, 140), body: String(d.body).slice(0, 600), url: appLink_(d.id), tag: String(d.tag || ''), prio: String(d.prio || 3), id: String(d.id || '') };
+  const res = UrlFetchApp.fetchAll(devs.map(dev => ({
+    url: url, method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + at },
+    payload: JSON.stringify({ message: { token: dev.token, data: data, webpush: { headers: { Urgency: 'high', TTL: '172800' } } } })
+  })));
+  let ok = 0; const dead = [];
+  res.forEach((r, i) => {
+    const code = r.getResponseCode(), txt = r.getContentText();
+    if (code === 200) ok++;
+    else if (code === 404 || /UNREGISTERED|not a valid FCM registration token|registration-token-not-registered/i.test(txt)) dead.push(devs[i].token);
+    else console.warn('FCM ' + code + ': ' + txt.slice(0, 300));
+  });
+  if (dead.length) removeTokens_(dead);
+  return ok;
+}
+function fcmAccessToken_(sa) {
+  const cache = CacheService.getScriptCache(), key = 'fcm_at_' + sa.client_email;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const now = Math.floor(Date.now() / 1000);
+  const enc = o => Utilities.base64EncodeWebSafe(Utilities.newBlob(JSON.stringify(o)).getBytes()).replace(/=+$/, '');
+  const unsigned = enc({ alg: 'RS256', typ: 'JWT' }) + '.' + enc({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 });
+  const sig = Utilities.base64EncodeWebSafe(Utilities.computeRsaSha256Signature(unsigned, sa.private_key)).replace(/=+$/, '');
+  const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', { method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: unsigned + '.' + sig } });
+  if (r.getResponseCode() !== 200) throw new Error('Google sign-in for notifications failed: ' + r.getContentText().slice(0, 200));
+  const token = JSON.parse(r.getContentText()).access_token;
+  cache.put(key, token, 3300);
+  return token;
+}
+/** Run from the editor: shows whether app notifications are set up and who has them on. */
+function pushStatus() {
+  Logger.log('App notifications set up: ' + (pushReady_() ? 'YES' : 'NO — add FCM_CONFIG, FCM_VAPID and FCM_SERVICE_ACCOUNT in Script properties'));
+  if (pushReady_()) { const sa = JSON.parse(PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT')); Logger.log('Firebase project: ' + sa.project_id); fcmAccessToken_(sa); Logger.log('Google sign-in for notifications: OK'); }
+  const devs = deviceRows_();
+  Logger.log('Phones registered: ' + devs.length);
+  devs.forEach(d => Logger.log(' - ' + d.name + ' · ' + d.device));
 }
 
 // ===================== HELPERS =====================
