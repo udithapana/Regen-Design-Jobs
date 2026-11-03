@@ -1203,7 +1203,7 @@ function drawTeam(d){
    PHONE NOTIFICATIONS — Firebase Cloud Messaging + app icon badge
    ========================================================= */
 const FB_VER = '10.12.2';
-const PUSH = { cfg:null, token:'', state:'unknown' };   // state: unsupported | blocked | off | on | unready | demo
+const PUSH = { cfg:null, token:'', state:'unknown', err:'', done:null };   // state: unsupported | blocked | off | on | unready | demo | error
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 function loadScript(src){
@@ -1228,22 +1228,32 @@ async function pushToken(){
   if (!t) throw new Error('No notification token from Google');
   return t;
 }
-function setBell(){ $('#bellDot').classList.toggle('hidden', PUSH.state === 'on' || PUSH.state === 'unknown' || PUSH.state === 'demo' || PUSH.state === 'unsupported'); $('#bellBtn').classList.toggle('on', PUSH.state === 'on'); }
-async function initPush(){
-  PUSH.state = 'unknown';
-  if (S.demo) { PUSH.state = 'demo'; return setBell(); }
-  if (!pushSupported()) { PUSH.state = 'unsupported'; return setBell(); }
-  try { PUSH.cfg = await api('pushConfig'); } catch (e) { return; }
-  if (!PUSH.cfg.ready) { PUSH.state = 'unready'; return setBell(); }
-  if (Notification.permission === 'denied') { PUSH.state = 'blocked'; return setBell(); }
-  if (Notification.permission !== 'granted') { PUSH.state = 'off'; return setBell(); }
+function setBell(){ $('#bellDot').classList.toggle('hidden', ['on','unknown','demo','unsupported'].includes(PUSH.state)); $('#bellBtn').classList.toggle('on', PUSH.state === 'on'); }
+const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
+function pushErrorText(m){
+  m = String(m || '');
+  if (/unknown action/i.test(m)) return 'The server is still running the old code. In Apps Script: Deploy → Manage deployments → ✏ Edit → Version: New version → Deploy. Then reopen the app.';
+  if (/failed to fetch|network|load failed/i.test(m)) return 'No internet connection, or the server could not be reached. Check the connection and try again.';
+  return m;
+}
+function initPush(){ PUSH.done = initPushRun().finally(() => { setBell(); if ($('#pushPanel')) openNotify(); }); return PUSH.done; }
+async function initPushRun(){
+  PUSH.state = 'unknown'; PUSH.err = '';
+  if (S.demo) { PUSH.state = 'demo'; return; }
+  if (!pushSupported()) { PUSH.state = 'unsupported'; return; }
+  try { PUSH.cfg = await withTimeout(api('pushConfig'), 20000, 'The server did not answer'); }
+  catch (e) { PUSH.state = 'error'; PUSH.err = pushErrorText(e.message); return; }
+  if (!PUSH.cfg.ready) { PUSH.state = 'unready'; return; }
+  if (Notification.permission === 'denied') { PUSH.state = 'blocked'; return; }
+  if (Notification.permission !== 'granted') { PUSH.state = 'off'; return; }
   // already allowed: keep this phone's token fresh on the server
   try {
-    const t = await pushToken(), saved = store.get().pushToken;
+    const t = await withTimeout(pushToken(), 25000, 'Google did not answer in time');
+    const saved = store.get().pushToken;
     if (t !== saved || !PUSH.cfg.devices) { await api('pushRegister', { token:t, device:deviceName() }); store.set({ pushToken:t }); }
     PUSH.token = t; PUSH.state = 'on';
-  } catch (e) { PUSH.state = 'off'; }
-  setBell(); clearShownNotifications();
+  } catch (e) { PUSH.state = 'off'; PUSH.err = pushErrorText(e.message); }
+  clearShownNotifications();
 }
 function deviceName(){
   const ua = navigator.userAgent;
@@ -1267,23 +1277,29 @@ function openNotify(){
     unready:`<div class="banner soon">App notifications aren't set up on the server yet.</div><p class="lock">${S.user.role === 'lead' ? 'Follow “Phone notifications” in the setup guide (Firebase, about 10 minutes).' : 'Ask the Design Head to finish the notification setup.'}</p>`,
     unsupported:`<div class="banner soon">This browser can't receive app notifications.</div><p class="lock">Use Chrome on Android, or on iPhone add the app to the Home Screen first (iOS 16.4 or newer).</p>`,
     demo:`<div class="banner soon">Notifications are not available in the demo.</div>`,
-    unknown:`<div class="banner soon">Checking…</div>`
+    error:`<div class="banner overdue">⚠ Couldn't check notifications.</div><p class="lock" style="font-size:13px">${esc(PUSH.err)}</p>`,
+    unknown:`<div class="banner soon"><span class="spin"></span> Checking…</div>`
   }[st];
   openModal(`<button class="close" onclick="closeModal()" aria-label="Close">×</button>
-    <h2>Phone notifications</h2><div class="sub">Like other apps: a pop-up on your phone and a badge on the Design Jobs icon until you open it.</div>
+    <h2 id="pushPanel">Phone notifications</h2><div class="sub">Like other apps: a pop-up on your phone and a badge on the Design Jobs icon until you open it.</div>
     ${msg}
     <p style="font-size:14px;margin:12px 0 4px">You'll be notified about ${who}.</p>
     ${!isStandalone() && st !== 'unsupported' && st !== 'demo' ? '<p class="lock">Tip: install the app (Chrome ⋮ → Install app) so notifications and the icon badge show as “Design Jobs”.</p>' : ''}
+    ${st === 'off' && PUSH.err ? `<p class="lock" style="font-size:13px">Last problem: ${esc(PUSH.err)}</p>` : ''}
     <div class="actions">
       ${st === 'off' ? '<button class="btn accent" id="pushOn">Turn on notifications</button>' : ''}
+      ${st === 'error' || (st === 'off' && PUSH.err) ? '<button class="btn alt" id="pushRetry">Try again</button>' : ''}
       ${st === 'on' ? '<button class="btn" id="pushTest">Send me a test</button><button class="btn alt" id="pushOff">Turn off on this phone</button>' : ''}
     </div>`);
+  if ($('#pushRetry')) $('#pushRetry').onclick = () => { PUSH.state = 'unknown'; openNotify(); initPush(); };
   if ($('#pushOn')) $('#pushOn').onclick = e => busyBtn(e.currentTarget, async () => {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { PUSH.state = perm === 'denied' ? 'blocked' : 'off'; setBell(); openNotify(); return; }
-    const t = await pushToken();
+    let t;
+    try { t = await withTimeout(pushToken(), 25000, 'Google did not answer in time — check the internet connection'); }
+    catch (err) { PUSH.err = pushErrorText(err.message); openNotify(); throw err; }
     await api('pushRegister', { token:t, device:deviceName() }); store.set({ pushToken:t });
-    PUSH.token = t; PUSH.state = 'on'; setBell(); openNotify(); toast('Notifications turned on');
+    PUSH.token = t; PUSH.state = 'on'; PUSH.err = ''; setBell(); openNotify(); toast('Notifications turned on');
   });
   if ($('#pushTest')) $('#pushTest').onclick = e => busyBtn(e.currentTarget, async () => {
     await api('pushTest'); toast('Test sent — close the app to see it with the icon badge');
