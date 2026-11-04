@@ -30,13 +30,18 @@ const TOP_PRIORITY = p => p === 'Very Urgent' || p === 'Urgent';
 
 /* ---- Due-date rules (identical in the app and in Code.gs) ----
    Working days skip Saturdays, Sundays and the holidays in the Sheet's "Holidays" tab.
-   A deadline falls at 5:00 pm on its last working day, counted from the day after the request. */
+   Day-based deadlines fall at 5:00 pm, counted from the day after the request.
+   Very Urgent : at least 4 hours from now (reason required), pending work ignored.
+   Urgent      : 1 working day from today, pending work ignored.
+   High        : 2 working days from today, pending work ignored.
+   Normal      : later of 3 working days from today, or 1 working day after the last pending job's deadline.
+   Low         : later of 4 working days from today, or 2 working days after the last pending job's deadline. */
 const DUE_RULES = {
-  'Very Urgent': { days: 1, queue: false },   // reason required, existing workload ignored
-  'Urgent':      { days: 1, queue: true },
-  'High':        { days: 2, queue: true },
-  'Normal':      { days: 3, queue: true },
-  'Low':         { days: 4, queue: true }
+  'Very Urgent': { hours: 4, days: 0, gap: 0, queue: false },
+  'Urgent':      { days: 1, gap: 0, queue: false },
+  'High':        { days: 2, gap: 0, queue: false },
+  'Normal':      { days: 3, gap: 1, queue: true },
+  'Low':         { days: 4, gap: 2, queue: true }
 };
 const PRIORITY_ORDER = ['Very Urgent', 'Urgent', 'High', 'Normal', 'Low'];
 const WORKLOAD_STATUSES = ['New', 'Assigned', 'In Progress', 'Info Needed', 'Review'];
@@ -71,19 +76,23 @@ function addWorkDays_(fromMs, n, hol) {
   while (c < n) { day = nextDay_(day); if (isWorkDay_(day, hol)) c++; }
   return Date.parse(day + 'T' + String(WORK_END_HOUR).padStart(2, '0') + ':00:00Z') - SL_OFFSET_MIN * 6e4;
 }
-/** Earliest allowed deadline for a priority, given the open design workload.
- *  Workload = the working days of every pending job (by its priority), shared across the active designers. */
+/** Earliest allowed deadline for a priority, given the pending design jobs.
+ *  designerCount is kept for compatibility; the rules no longer use it. */
 function earliestDue_(priority, requests, designerCount, hol, nowMs, excludeId) {
   const rule = DUE_RULES[priority] || DUE_RULES.Normal;
-  const pending = requests.filter(r => r.ID !== excludeId && WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
-  const loadDays = pending.reduce((s, r) => s + (DUE_RULES[r.Priority] || DUE_RULES.Normal).days, 0);
-  const team = Math.max(1, designerCount || 0);
-  const queueDays = rule.queue ? Math.ceil(loadDays / team) : 0;
-  return {
-    due: addWorkDays_(nowMs, queueDays + rule.days, hol),
-    workloadEnd: queueDays ? addWorkDays_(nowMs, queueDays, hol) : null,
-    queueDays: queueDays, needDays: rule.days, pending: pending.length, loadDays: loadDays, team: team, queue: rule.queue
-  };
+  const pending = requests.filter(r => r.ID !== excludeId && WORKLOAD_STATUSES.indexOf(r.Status) >= 0 && r.Deadline);
+  let last = null;
+  pending.forEach(r => { const t = new Date(r.Deadline).getTime(); if (!isNaN(t) && (!last || t > last.ms)) last = { ms: t, id: r.ID }; });
+  const out = { pending: pending.length, needDays: rule.days, gap: rule.gap, hours: rule.hours || 0, queue: rule.queue,
+    lastDeadline: last ? last.ms : null, lastId: last ? last.id : '', afterQueue: null, byQueue: false };
+  if (rule.hours) { out.due = nowMs + rule.hours * 36e5; out.base = out.due; return out; }
+  out.base = addWorkDays_(nowMs, rule.days, hol);
+  out.due = out.base;
+  if (rule.queue && last) {
+    out.afterQueue = addWorkDays_(last.ms, rule.gap, hol);
+    if (out.afterQueue > out.base) { out.due = out.afterQueue; out.byQueue = true; }
+  }
+  return out;
 }
 
 const REQ_HEADERS = [
@@ -163,9 +172,11 @@ function ensureSheet_(ss, name, headers) {
   return sh;
 }
 
+const BACKEND_VERSION = '2026-11-04 deadline rules v2';
+
 // ===================== WEB API =====================
 function doGet() {
-  return json_({ ok: true, data: { service: 'Regen Design Request Tracker' } });
+  return json_({ ok: true, data: { service: 'Regen Design Request Tracker', version: BACKEND_VERSION, notifications: pushReady_() } });
 }
 
 function doPost(e) {
@@ -351,10 +362,14 @@ function designerCount_() { return teamRows_().filter(m => m.active && /^design$
 function checkDeadline_(priority, deadlineMs, excludeId) {
   const e = earliestDue_(priority, readRequests_(), designerCount_(), holidayMap_(), Date.now(), excludeId);
   if (deadlineMs < e.due - 60000) {
-    throw new Error('Earliest allowed deadline for ' + priority + ' is ' + fmt_(new Date(e.due)) +
-      (e.queueDays ? ' (design workload ≈ ' + e.queueDays + ' working day' + (e.queueDays > 1 ? 's' : '') + ' + ' + e.needDays + ' for ' + priority + ')'
-                   : ' (' + e.needDays + ' working day' + (e.needDays > 1 ? 's' : '') + ' for ' + priority + ')'));
+    throw new Error('Earliest allowed deadline for ' + priority + ' is ' + fmt_(new Date(e.due)) + ' (' + dueWhy_(priority, e) + ')');
   }
+}
+function dueWhy_(priority, e) {
+  const wd = n => n + ' working day' + (n === 1 ? '' : 's');
+  if (e.hours) return e.hours + ' hours from now';
+  if (e.byQueue) return wd(e.gap) + ' after the last pending job ' + e.lastId + ', due ' + fmt_(new Date(e.lastDeadline));
+  return wd(e.needDays) + ' from today' + (e.queue ? '' : ', pending jobs not counted');
 }
 function checkReason_(priority, reason) {
   if (priority === 'Very Urgent' && clean_(reason, 500).length < VERY_URGENT_REASON_MIN)

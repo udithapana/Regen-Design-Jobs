@@ -288,13 +288,18 @@ const DELIVERABLES = ['Roof layout', 'SLD', 'Structure', 'BOQ', 'Proposal', 'Yie
 const PROJECT_TYPES = ['Domestic on-grid', 'Domestic hybrid', 'Commercial', 'Industrial', 'Ground mount', 'Other'];
 /* ---- Due-date rules (identical in the app and in Code.gs) ----
    Working days skip Saturdays, Sundays and the holidays in the Sheet's "Holidays" tab.
-   A deadline falls at 5:00 pm on its last working day, counted from the day after the request. */
+   Day-based deadlines fall at 5:00 pm, counted from the day after the request.
+   Very Urgent : at least 4 hours from now (reason required), pending work ignored.
+   Urgent      : 1 working day from today, pending work ignored.
+   High        : 2 working days from today, pending work ignored.
+   Normal      : later of 3 working days from today, or 1 working day after the last pending job's deadline.
+   Low         : later of 4 working days from today, or 2 working days after the last pending job's deadline. */
 const DUE_RULES = {
-  'Very Urgent': { days: 1, queue: false },   // reason required, existing workload ignored
-  'Urgent':      { days: 1, queue: true },
-  'High':        { days: 2, queue: true },
-  'Normal':      { days: 3, queue: true },
-  'Low':         { days: 4, queue: true }
+  'Very Urgent': { hours: 4, days: 0, gap: 0, queue: false },
+  'Urgent':      { days: 1, gap: 0, queue: false },
+  'High':        { days: 2, gap: 0, queue: false },
+  'Normal':      { days: 3, gap: 1, queue: true },
+  'Low':         { days: 4, gap: 2, queue: true }
 };
 const PRIORITY_ORDER = ['Very Urgent', 'Urgent', 'High', 'Normal', 'Low'];
 const WORKLOAD_STATUSES = ['New', 'Assigned', 'In Progress', 'Info Needed', 'Review'];
@@ -329,19 +334,23 @@ function addWorkDays_(fromMs, n, hol) {
   while (c < n) { day = nextDay_(day); if (isWorkDay_(day, hol)) c++; }
   return Date.parse(day + 'T' + String(WORK_END_HOUR).padStart(2, '0') + ':00:00Z') - SL_OFFSET_MIN * 6e4;
 }
-/** Earliest allowed deadline for a priority, given the open design workload.
- *  Workload = the working days of every pending job (by its priority), shared across the active designers. */
+/** Earliest allowed deadline for a priority, given the pending design jobs.
+ *  designerCount is kept for compatibility; the rules no longer use it. */
 function earliestDue_(priority, requests, designerCount, hol, nowMs, excludeId) {
   const rule = DUE_RULES[priority] || DUE_RULES.Normal;
-  const pending = requests.filter(r => r.ID !== excludeId && WORKLOAD_STATUSES.indexOf(r.Status) >= 0);
-  const loadDays = pending.reduce((s, r) => s + (DUE_RULES[r.Priority] || DUE_RULES.Normal).days, 0);
-  const team = Math.max(1, designerCount || 0);
-  const queueDays = rule.queue ? Math.ceil(loadDays / team) : 0;
-  return {
-    due: addWorkDays_(nowMs, queueDays + rule.days, hol),
-    workloadEnd: queueDays ? addWorkDays_(nowMs, queueDays, hol) : null,
-    queueDays: queueDays, needDays: rule.days, pending: pending.length, loadDays: loadDays, team: team, queue: rule.queue
-  };
+  const pending = requests.filter(r => r.ID !== excludeId && WORKLOAD_STATUSES.indexOf(r.Status) >= 0 && r.Deadline);
+  let last = null;
+  pending.forEach(r => { const t = new Date(r.Deadline).getTime(); if (!isNaN(t) && (!last || t > last.ms)) last = { ms: t, id: r.ID }; });
+  const out = { pending: pending.length, needDays: rule.days, gap: rule.gap, hours: rule.hours || 0, queue: rule.queue,
+    lastDeadline: last ? last.ms : null, lastId: last ? last.id : '', afterQueue: null, byQueue: false };
+  if (rule.hours) { out.due = nowMs + rule.hours * 36e5; out.base = out.due; return out; }
+  out.base = addWorkDays_(nowMs, rule.days, hol);
+  out.due = out.base;
+  if (rule.queue && last) {
+    out.afterQueue = addWorkDays_(last.ms, rule.gap, hol);
+    if (out.afterQueue > out.base) { out.due = out.afterQueue; out.byQueue = true; }
+  }
+  return out;
 }
 
 const PRIORITIES = PRIORITY_ORDER;
@@ -519,7 +528,7 @@ function designerStats(name, now){
   const st = { open:open.length, overdue:open.filter(r => urgency(r, now) === 'overdue').length,
     hold:mine.filter(r => r.Status === 'On Hold').length,
     done:mine.filter(r => r.Status === 'Completed' && new Date(r.CompletedAt || r.UpdatedAt) >= monthStart).length,
-    load:open.reduce((n, r) => n + (DUE_RULES[r.Priority] || DUE_RULES.Normal).days, 0) };
+    load:open.reduce((n, r) => n + ((DUE_RULES[r.Priority] || DUE_RULES.Normal).days || 1), 0) };
   SIDE_STATS.forEach(([status]) => { st[status] = open.filter(r => r.Status === status).length; });
   return st;
 }
@@ -687,12 +696,17 @@ function wireDueRules(opts){
     dl.min = toLocalInput(opts.isNew || lowered ? dueIso : new Date(Math.min(e.due, new Date(opts.origDeadline).getTime())).toISOString());
     const lead = opts.isNew || lowered ? 'Earliest allowed' : 'Earliest if you move it earlier';
     let html;
+    const when = ms => esc(fmtDate(new Date(ms).toISOString()));
     if (p === 'Very Urgent') {
-      html = `⚡ <b>Very Urgent:</b> ${lead.toLowerCase()} <b>${esc(fmtDate(dueIso))}</b> — 1 working day; the design team's current workload is not counted. A reason is required.`;
-    } else if (e.queueDays) {
-      html = `${lead}: <b>${esc(fmtDate(dueIso))}</b><small>Design team has ${e.pending} pending job${e.pending === 1 ? '' : 's'} ≈ ${wd(e.queueDays)} of work for ${e.team} designer${e.team === 1 ? '' : 's'}, then ${wd(e.needDays)} for ${esc(p)}.</small>`;
+      html = `⚡ <b>Very Urgent:</b> ${lead.toLowerCase()} <b>${when(e.due)}</b> — at least ${e.hours} hours from now; pending jobs are not counted. A reason is required.`;
+    } else if (!e.queue) {
+      html = `${lead}: <b>${when(e.due)}</b><small>${wd(e.needDays)} from today for ${esc(p)} — pending jobs are not counted.</small>`;
+    } else if (e.byQueue) {
+      html = `${lead}: <b>${when(e.due)}</b><small>The last pending job (${esc(e.lastId)}) is due ${when(e.lastDeadline)}, so ${esc(p)} gets ${wd(e.gap)} after it. (Minimum ${wd(e.needDays)} from today.)</small>`;
+    } else if (e.pending) {
+      html = `${lead}: <b>${when(e.due)}</b><small>${wd(e.needDays)} from today for ${esc(p)}. Pending jobs finish in time (last one due ${when(e.lastDeadline)}).</small>`;
     } else {
-      html = `${lead}: <b>${esc(fmtDate(dueIso))}</b><small>${wd(e.needDays)} for ${esc(p)} — the design team has no pending work.</small>`;
+      html = `${lead}: <b>${when(e.due)}</b><small>${wd(e.needDays)} from today for ${esc(p)} — the design team has no pending work.</small>`;
     }
     hint.className = 'due-hint' + (p === 'Very Urgent' ? ' vu' : '');
     hint.innerHTML = html + '<small>Working days skip weekends and public holidays.</small>';
